@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
+#include "Components/ActorComponent.h"
 #include "BMPState.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class BMP_API UBMPState : public UObject
+class BMP_API UBMPState : public UActorComponent
 {
 	GENERATED_BODY()
 public:

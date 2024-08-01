@@ -11,15 +11,6 @@ class USkeletalMeshComponent;
 class ABMPCharacter;
 class UInputAction;
 
-UENUM()
-enum EWeaponState : uint8
-{
-	Firing,
-	Idle,
-	Equipping,
-	Unequipping
-};
-
 UCLASS()
 class BMP_API ABMPWeapon : public AActor, public IInteractableInterface
 {
@@ -28,6 +19,9 @@ class BMP_API ABMPWeapon : public AActor, public IInteractableInterface
 public:	
 	// Sets default values for this actor's properties
 	ABMPWeapon();
+
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
 
 	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -48,16 +42,17 @@ protected:
 	USkeletalMeshComponent* Mesh3P;
 
 	class UBMPPickupComponent* PickUpComponent;
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-	
-	void OnEquip(ABMPCharacter* NewCharacter);
-
+public:
 	USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	USkeletalMeshComponent* GetMesh3P() const { return Mesh3P; }
 
+	void OnEquip(ABMPCharacter* NewCharacter);
+
+protected:
+
 	virtual void HandleFireInput();
+	
+	virtual void HandleStopFireInput();
 
 	virtual void Fire();
 
@@ -71,6 +66,12 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerFireHitscan(FVector StartTrace, FVector EndTrace);
 
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class ABMPProjectile> ProjectileClass;
+
+	UPROPERTY(EditDefaultsOnly)
+	float HitscanRange;
+
 	bool bWantsToFire;
 
 protected:
@@ -83,12 +84,83 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* FireAction;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class ABMPProjectile> ProjectileClass;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* StopFireAction;
 
-	UPROPERTY(EditAnywhere, Category = "Hitscan")
-	float HitscanRange;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* ReloadAction;
 
 	void BindInput(ABMPCharacter* TargetCharacter);
 	//Add UnbindInput()
+
+	virtual void GotoState(class UBMPWeaponState* NewState);
+	void GotoStateIdle();
+	void GotoStateReloading();
+	void GotoStateFiring();
+
+	class UBMPWeaponState* CurrentState;
+	class UBMPWeaponStateIdle* IdleState;
+	class UBMPWeaponStateFiring* FiringState;
+	class UBMPWeaponStateReloading* ReloadingState;
+
+	friend class UBMPWeaponState;
+	friend class UBMPWeaponStateIdle;
+	friend class UBMPWeaponStateFiring;
+	friend class UBMPWeaponStateReloading;
+
+	//Probably replicate this?
+	UPROPERTY(VisibleAnywhere)
+	float LastTimeFiredSeconds;
+
+	UPROPERTY(EditAnywhere)
+	float FireRateSeconds;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = Ammo)
+	int32 MaxAmmoReserves;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = Ammo)
+	int32 CurrentAmmoReserves;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = Ammo)
+	int32 CurrentAmmo;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = Ammo)
+	int32 MagazineSize;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = Ammo)
+	int32 AmmoCost;
+
+	UPROPERTY(EditAnywhere)
+	float ReloadTimeSeconds;
+public:
+
+	int32 GetCurrentAmmo() const { return CurrentAmmo; }
+	int32 GetCurrentAmmoReserves() const { return CurrentAmmoReserves; }
+
+	bool HasAmmoInMagazine()  { return CurrentAmmo > 0; }
+
+	float GetFireRateSeconds() const { return FireRateSeconds; }
+
+	//Doesn't have a margin of error. - Having a slow reload speed is one way.
+	bool IsReadyToFire();
+
+	bool WantsToFire() const { return bWantsToFire; }
+
+	UFUNCTION(BlueprintCallable)
+	virtual void AddAmmo(float Amount);
+
+	UFUNCTION(BlueprintCallable)
+	virtual void AddAmmoReserves(float Amount);
+
+	UFUNCTION()
+	bool CanReload();
+
+	bool CanFire();
+	
+protected:
+
+	virtual void HandleReloadInput();
+
+	virtual void ReloadWeapon();
+
 };

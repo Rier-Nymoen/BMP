@@ -16,6 +16,7 @@ class USoundBase;
 
 class ABMPWeapon;
 
+
 UCLASS(config=Game)
 class ABMPCharacter : public ACharacter
 {
@@ -95,6 +96,8 @@ public:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Weapon)
 	ABMPWeapon* Weapon;
+
+	ABMPWeapon* GetEquippedWeapon() const { return Weapon; }
 
 protected:
 	//attributes for networking test only.

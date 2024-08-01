@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "BMPWeaponState.h"
-#include "BMPWeaponStateFiring.generated.h"
+#include "BMPWeaponStateIdle.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class BMP_API UBMPWeaponStateFiring : public UBMPWeaponState
+class BMP_API UBMPWeaponStateIdle : public UBMPWeaponState
 {
 	GENERATED_BODY()
 public:
@@ -18,9 +18,8 @@ public:
 
 	virtual void ExitState() override;
 
-	virtual void HandleReloadInput() override;
-protected:
-	struct FTimerHandle TimerHandle_CheckRefire;		
+	virtual void HandleFireInput();
 
-	virtual void CheckRefireTimer();
+	virtual void HandleReloadInput() override;
+
 };

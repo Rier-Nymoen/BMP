@@ -7,6 +7,10 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "Weapon/BMPWeaponState.h"
+#include "Weapon/BMPWeaponStateIdle.h"
+#include "Weapon/BMPWeaponStateFiring.h"
+#include "Weapon/BMPWeaponStateReloading.h"
 
 // Sets default values
 ABMPWeapon::ABMPWeapon()
@@ -23,6 +27,20 @@ ABMPWeapon::ABMPWeapon()
 	bWantsToFire = false;
 
 	bReplicates = true;
+
+	CurrentState = nullptr;
+	IdleState = CreateDefaultSubobject<UBMPWeaponStateIdle>("IdleState");
+	FiringState = CreateDefaultSubobject<UBMPWeaponStateFiring>("FiringState");
+	ReloadingState = CreateDefaultSubobject<UBMPWeaponStateReloading>("ReloadingState");
+
+	MaxAmmoReserves = 120;
+	CurrentAmmoReserves = MaxAmmoReserves;
+	MagazineSize = 39;
+	CurrentAmmo = MagazineSize;
+	AmmoCost = 1;
+	FireRateSeconds = 0.2f;
+	ReloadTimeSeconds = 0.33f;
+	LastTimeFiredSeconds = -1.f;
 }
 
 void ABMPWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -30,6 +48,10 @@ void ABMPWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABMPWeapon, Character);
 
+	DOREPLIFETIME_CONDITION(ABMPWeapon, MaxAmmoReserves, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABMPWeapon, CurrentAmmoReserves, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABMPWeapon, CurrentAmmo, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ABMPWeapon, MagazineSize, COND_OwnerOnly);
 }
 
 void ABMPWeapon::Interact(ABMPCharacter* TargetCharacter)
@@ -52,6 +74,7 @@ void ABMPWeapon::OnInteractionRangeExited(ABMPCharacter* TargetCharacter)
 void ABMPWeapon::BeginPlay()
 {
 	Super::BeginPlay();
+	CurrentState = IdleState;
 }
 
 // Called every frame
@@ -79,13 +102,18 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 void ABMPWeapon::HandleFireInput()
 {
 	bWantsToFire = true;
+	CurrentState->HandleFireInput();
+}
 
-	Fire();
-	
+void ABMPWeapon::HandleStopFireInput()
+{
+	bWantsToFire = false;
+	UE_LOG(LogTemp, Warning, TEXT("StopFireInput"))
 }
 
 void ABMPWeapon::Fire()
 {
+	AddAmmo(-AmmoCost);
 	if (ProjectileClass)
 	{
 		FireProjectile();
@@ -94,6 +122,7 @@ void ABMPWeapon::Fire()
 	{
 		FireHitscan();
 	}
+	LastTimeFiredSeconds = GetWorld()->GetTimeSeconds();
 }
 
 void ABMPWeapon::FireHitscan()
@@ -157,8 +186,82 @@ void ABMPWeapon::BindInput(ABMPCharacter* TargetCharacter)
 		if (EnhancedInputComponent)
 		{
 			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ABMPWeapon::HandleFireInput);
+			EnhancedInputComponent->BindAction(StopFireAction, ETriggerEvent::Completed, this, &ABMPWeapon::HandleStopFireInput);
+			EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ABMPWeapon::HandleReloadInput);
 		}
 	}
+}
+
+void ABMPWeapon::GotoState(UBMPWeaponState* NewState)
+{
+	UBMPWeaponState* PreviousState = CurrentState;
+	CurrentState = NewState;
+
+	if (PreviousState != nullptr)
+	{
+		PreviousState->ExitState();
+	}
+	if (CurrentState != nullptr)
+	{
+		CurrentState->EnterState();
+	}
+}
+
+void ABMPWeapon::GotoStateIdle()
+{
+	GotoState(IdleState);
+}
+
+void ABMPWeapon::GotoStateReloading()
+{
+	GotoState(ReloadingState);
+}
+
+void ABMPWeapon::GotoStateFiring()
+{
+	GotoState(FiringState);
+}
+
+bool ABMPWeapon::IsReadyToFire()
+{
+	if ((GetWorld()->GetTimeSeconds() - LastTimeFiredSeconds) >= (FireRateSeconds))
+	{
+		return true;
+	}
+	return false;
+}
+
+void ABMPWeapon::HandleReloadInput()
+{
+	CurrentState->HandleReloadInput();
+}
+
+void ABMPWeapon::ReloadWeapon()
+{
+	int BulletDifference = (MagazineSize - CurrentAmmo);
+	int AmountToReload = FMath::Min(BulletDifference, CurrentAmmoReserves);
+	CurrentAmmo += AmountToReload;
+	CurrentAmmoReserves -= AmountToReload;
+}
+
+bool ABMPWeapon::CanReload()
+{
+	return (CurrentAmmoReserves > 0 && CurrentAmmo < MagazineSize);
+}
+
+bool ABMPWeapon::CanFire()
+{
+	return HasAmmoInMagazine() && IsReadyToFire();
+}
+
+void ABMPWeapon::AddAmmo(float Amount)
+{
+	CurrentAmmo = FMath::Clamp(CurrentAmmo + Amount, 0, MagazineSize);
+}
+
+void ABMPWeapon::AddAmmoReserves(float Amount)
+{
+	CurrentAmmoReserves = FMath::Clamp(CurrentAmmoReserves + Amount, 0, MaxAmmoReserves);
 }
 
 void ABMPWeapon::ServerFireHitscan_Implementation(FVector StartTrace, FVector EndTrace)
@@ -191,6 +294,8 @@ void ABMPWeapon::ServerFireProjectile_Implementation(FVector AimLocation, FRotat
 		UGameplayStatics::FinishSpawningActor(Projectile, AimTransform);
 	}
 }
+
+
 
 
 
