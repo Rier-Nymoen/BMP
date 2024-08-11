@@ -5,13 +5,13 @@
 #include "BMP/BMPWeapon.h"
 void UBMPWeaponStateFiring::EnterState()
 {
-	UE_LOG(LogTemp, Display, TEXT("Enter Firing"))
-
+	//UE_LOG(LogTemp, Display, TEXT("Enter Firing"))
 	if (ABMPWeapon* OwningWeapon = GetOwningWeapon())
 	{
+		const float CurrentTime = GetWorld()->GetTimeSeconds();
 		check(OwningWeapon->IsReadyToFire())
 		OwningWeapon->Fire();
-		GetWorld()->GetTimerManager().SetTimer(TimerHandle_CheckRefire, this, &UBMPWeaponStateFiring::CheckRefireTimer, OwningWeapon->GetFireRateSeconds(), true);
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle_CheckRefire, this, &UBMPWeaponStateFiring::CheckRefireTimer,   OwningWeapon->GetFireRateSeconds(), true);
 	}
 }
 

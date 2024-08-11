@@ -50,11 +50,19 @@ public:
 
 protected:
 
-	virtual void HandleFireInput();
-	
-	virtual void HandleStopFireInput();
+	virtual void StartFire();
+
+	UFUNCTION(Server, Reliable)
+	virtual void ServerStartFire();
+
+	virtual void StopFire();
+
+	UFUNCTION(Server, Reliable)
+	virtual void ServerStopFire();
 
 	virtual void Fire();
+
+	virtual void PlayFiringEffects();
 
 	virtual void FireHitscan();
 
@@ -137,12 +145,12 @@ public:
 	int32 GetCurrentAmmo() const { return CurrentAmmo; }
 	int32 GetCurrentAmmoReserves() const { return CurrentAmmoReserves; }
 
-	bool HasAmmoInMagazine()  { return CurrentAmmo > 0; }
+	bool HasAmmoInMagazine() const  { return CurrentAmmo > 0; }
 
 	float GetFireRateSeconds() const { return FireRateSeconds; }
 
 	//Doesn't have a margin of error. - Having a slow reload speed is one way.
-	bool IsReadyToFire();
+	bool IsReadyToFire() const;
 
 	bool WantsToFire() const { return bWantsToFire; }
 
@@ -153,9 +161,9 @@ public:
 	virtual void AddAmmoReserves(float Amount);
 
 	UFUNCTION()
-	bool CanReload();
+	bool CanReload() const;
 
-	bool CanFire();
+	bool CanFire() const;
 	
 protected:
 
@@ -163,4 +171,12 @@ protected:
 
 	virtual void ReloadWeapon();
 
+	UFUNCTION(Server, Reliable)
+	virtual void ServerReloadWeapon();
+
+	UFUNCTION(Server, Reliable)
+	virtual void ServerProcessHit(const FHitResult& HitResult);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	class USoundCue* FireSoundCue;
 };

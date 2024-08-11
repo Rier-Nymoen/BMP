@@ -12,6 +12,8 @@
 #include "Weapon/BMPWeaponStateFiring.h"
 #include "Weapon/BMPWeaponStateReloading.h"
 
+#include "Sound/SoundCue.h"
+
 // Sets default values
 ABMPWeapon::ABMPWeapon()
 {
@@ -22,7 +24,7 @@ ABMPWeapon::ABMPWeapon()
 	SetRootComponent(Mesh3P);
 	PickUpComponent = CreateDefaultSubobject<UBMPPickupComponent>("PickUpComponent");
 	PickUpComponent->SetupAttachment(GetRootComponent());
-	HitscanRange = 1500.f;
+	HitscanRange = 15000.f;
 
 	bWantsToFire = false;
 
@@ -99,30 +101,67 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 
 }
 
-void ABMPWeapon::HandleFireInput()
+void ABMPWeapon::StartFire()
 {
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerStartFire();
+	}
+	
 	bWantsToFire = true;
 	CurrentState->HandleFireInput();
+
 }
 
-void ABMPWeapon::HandleStopFireInput()
+void ABMPWeapon::ServerStartFire_Implementation()
 {
+	StartFire();
+}
+
+void ABMPWeapon::StopFire()
+{
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerStopFire();
+	}
+
 	bWantsToFire = false;
-	UE_LOG(LogTemp, Warning, TEXT("StopFireInput"))
+	
+}
+
+void ABMPWeapon::ServerStopFire_Implementation()
+{
+	StopFire();
 }
 
 void ABMPWeapon::Fire()
 {
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		PlayFiringEffects();
+	}
+
+	if (Character && Character->IsLocallyControlled())
+	{
+		if (ProjectileClass)
+		{
+			FireProjectile();
+		}
+		else
+		{
+			FireHitscan();
+		}
+	}
+
 	AddAmmo(-AmmoCost);
-	if (ProjectileClass)
-	{
-		FireProjectile();
-	}
-	else
-	{
-		FireHitscan();
-	}
+
 	LastTimeFiredSeconds = GetWorld()->GetTimeSeconds();
+}
+
+void ABMPWeapon::PlayFiringEffects()
+{
+	//UE_LOG(LogTemp, Warning, TEXT("PlayingFiringEffects"))
+	UGameplayStatics::PlaySoundAtLocation(this, FireSoundCue, GetActorLocation(), 0.35, 1.F, 0.0f);
 }
 
 void ABMPWeapon::FireHitscan()
@@ -136,14 +175,21 @@ void ABMPWeapon::FireHitscan()
 	FHitResult HitResult;
 	FVector AimLocation;
 	FRotator AimRotation;
+
 	if (PlayerController)
 	{
 		PlayerController->GetPlayerViewPoint(AimLocation, AimRotation);
 		FVector StartTrace = AimLocation;
 		FVector EndTrace = StartTrace + (AimRotation.Vector() * HitscanRange);
-		UE_LOG(LogTemp, Display, TEXT("%s: Hitscan"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
-		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Green, false, 1.5f);
-		ServerFireHitscan(StartTrace, EndTrace);
+		FCollisionQueryParams CollisionQueryParams;
+		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, CollisionQueryParams);
+		if (bHit)
+		{
+			ServerProcessHit(HitResult);
+		}
+		//UE_LOG(LogTemp, Display, TEXT("%s: Hitscan"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+		
+		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::White, false, 35.f);
 	}
 }
 
@@ -185,8 +231,8 @@ void ABMPWeapon::BindInput(ABMPCharacter* TargetCharacter)
 		UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent);
 		if (EnhancedInputComponent)
 		{
-			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ABMPWeapon::HandleFireInput);
-			EnhancedInputComponent->BindAction(StopFireAction, ETriggerEvent::Completed, this, &ABMPWeapon::HandleStopFireInput);
+			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &ABMPWeapon::StartFire);
+			EnhancedInputComponent->BindAction(StopFireAction, ETriggerEvent::Completed, this, &ABMPWeapon::StopFire);
 			EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ABMPWeapon::HandleReloadInput);
 		}
 	}
@@ -222,7 +268,7 @@ void ABMPWeapon::GotoStateFiring()
 	GotoState(FiringState);
 }
 
-bool ABMPWeapon::IsReadyToFire()
+bool ABMPWeapon::IsReadyToFire() const
 {
 	if ((GetWorld()->GetTimeSeconds() - LastTimeFiredSeconds) >= (FireRateSeconds))
 	{
@@ -231,6 +277,12 @@ bool ABMPWeapon::IsReadyToFire()
 	return false;
 }
 
+/*
+Need start and stop methods for input. So a start  fire, server start fire etc. bWantsToFire really matters on authority.
+
+Server determines state. we are just input. think about player feel even at high pings.
+*/
+
 void ABMPWeapon::HandleReloadInput()
 {
 	CurrentState->HandleReloadInput();
@@ -238,18 +290,35 @@ void ABMPWeapon::HandleReloadInput()
 
 void ABMPWeapon::ReloadWeapon()
 {
-	int BulletDifference = (MagazineSize - CurrentAmmo);
-	int AmountToReload = FMath::Min(BulletDifference, CurrentAmmoReserves);
-	CurrentAmmo += AmountToReload;
-	CurrentAmmoReserves -= AmountToReload;
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		int BulletDifference = (MagazineSize - CurrentAmmo);
+		int AmountToReload = FMath::Min(BulletDifference, CurrentAmmoReserves);
+		CurrentAmmo += AmountToReload;
+		CurrentAmmoReserves -= AmountToReload;
+	}
+	else
+	{
+		ServerReloadWeapon();
+	}
 }
 
-bool ABMPWeapon::CanReload()
+void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
+{
+	UE_LOG(LogTemp, Warning, TEXT("ServerProcessHit"))
+}
+
+void ABMPWeapon::ServerReloadWeapon_Implementation()
+{
+	ReloadWeapon();
+}
+
+bool ABMPWeapon::CanReload() const
 {
 	return (CurrentAmmoReserves > 0 && CurrentAmmo < MagazineSize);
 }
 
-bool ABMPWeapon::CanFire()
+bool ABMPWeapon::CanFire() const
 {
 	return HasAmmoInMagazine() && IsReadyToFire();
 }
@@ -270,10 +339,10 @@ void ABMPWeapon::ServerFireHitscan_Implementation(FVector StartTrace, FVector En
 	//@todo: fix collision channels
 	FCollisionQueryParams CollisionResponseParams;
 
-
 	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, CollisionResponseParams);
 	if (bHit)
 	{
+
 	}
 	DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Green, false, 1.5f);
 

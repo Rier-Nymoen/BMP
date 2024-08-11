@@ -21,10 +21,6 @@ UCLASS(config=Game)
 class ABMPCharacter : public ACharacter
 {
 	GENERATED_BODY()
-
-
-
-	
 public:
 	ABMPCharacter();
 

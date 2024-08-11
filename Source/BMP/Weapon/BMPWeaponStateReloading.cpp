@@ -6,8 +6,7 @@
 
 void UBMPWeaponStateReloading::EnterState()
 {
-	UE_LOG(LogTemp, Display, TEXT("Enter Reload"))
-
+	//UE_LOG(LogTemp, Display, TEXT("Enter Reload"))
 	if (ABMPWeapon* OwningWeapon = GetOwningWeapon())
 	{
 		if (OwningWeapon->CanReload())

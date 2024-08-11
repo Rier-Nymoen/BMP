@@ -6,7 +6,7 @@
 
 void UBMPWeaponStateIdle::EnterState()
 {
-	UE_LOG(LogTemp, Display, TEXT("Enter Idle"))
+	//UE_LOG(LogTemp, Display, TEXT("Enter Idle"))
 	if (ABMPWeapon* OwningWeapon = GetOwningWeapon())
 	{
 		if (OwningWeapon->WantsToFire() && OwningWeapon->CanFire())
