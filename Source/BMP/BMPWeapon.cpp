@@ -13,6 +13,8 @@
 #include "Weapon/BMPWeaponStateReloading.h"
 
 #include "Sound/SoundCue.h"
+#include "AbilitySystemComponent.h"
+#include"AbilitySystemInterface.h"
 
 // Sets default values
 ABMPWeapon::ABMPWeapon()
@@ -43,6 +45,8 @@ ABMPWeapon::ABMPWeapon()
 	FireRateSeconds = 0.2f;
 	ReloadTimeSeconds = 0.33f;
 	LastTimeFiredSeconds = -1.f;
+
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>("AbilitySystemComponent");
 }
 
 void ABMPWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -306,6 +310,32 @@ void ABMPWeapon::ReloadWeapon()
 void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
 {
 	UE_LOG(LogTemp, Warning, TEXT("ServerProcessHit"))
+	AActor* HitActor = HitResult.GetActor();
+	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(HitActor);
+	if (!AbilitySystemInterface)
+	{
+		return;
+	}
+	UAbilitySystemComponent* TargetAbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent();
+	if (!TargetAbilitySystemComponent)
+	{
+		return;
+	}
+	check(GetInstigator())
+	if (AbilitySystemComponent)
+	{
+		if (DamageEffect)
+		{
+			FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+			EffectContext.AddHitResult(HitResult);
+			EffectContext.AddInstigator(GetInstigator(), this);
+
+			FPredictionKey PredictionKey;
+			const FGameplayEffectSpecHandle DamageEffectSpec = TargetAbilitySystemComponent->MakeOutgoingSpec(DamageEffect, 0.F, EffectContext);
+
+			AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*DamageEffectSpec.Data, TargetAbilitySystemComponent);
+		}
+	}
 }
 
 void ABMPWeapon::ServerReloadWeapon_Implementation()

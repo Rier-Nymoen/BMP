@@ -5,14 +5,17 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interfaces/InteractableInterface.h"
+#include "AbilitySystemInterface.h"
+
 #include "BMPWeapon.generated.h"
 
 class USkeletalMeshComponent;
 class ABMPCharacter;
 class UInputAction;
 
+
 UCLASS()
-class BMP_API ABMPWeapon : public AActor, public IInteractableInterface
+class BMP_API ABMPWeapon : public AActor, public IInteractableInterface, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 	
@@ -179,4 +182,14 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class USoundCue* FireSoundCue;
+
+public:
+	class UAbilitySystemComponent* AbilitySystemComponent;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }
+
+	class UBaseSet* BaseSet;
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite	)
+	TSubclassOf<class UGameplayEffect> DamageEffect;
 };

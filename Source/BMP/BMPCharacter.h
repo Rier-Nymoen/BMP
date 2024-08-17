@@ -5,7 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "AbilitySystemInterface.h"
+#include "GameplayEffectTypes.h"
 #include "BMPCharacter.generated.h"
+
 
 class UInputComponent;
 class USkeletalMeshComponent;
@@ -15,10 +18,11 @@ class UAnimMontage;
 class USoundBase;
 
 class ABMPWeapon;
+class UAbilitySystemComponent;
 
 
 UCLASS(config=Game)
-class ABMPCharacter : public ACharacter
+class ABMPCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 public:
@@ -108,5 +112,14 @@ protected:
 
 	UFUNCTION()
 	void OnRep_Weapon();
+
+public:
+	UAbilitySystemComponent* AbilitySystemComponent;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }
+
+	class UBMPAttributeSetBase* AttributeSetBase;
+protected:
+	virtual void HandleHealthChanged(const FOnAttributeChangeData& Data);
 };
 

@@ -9,7 +9,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "Net/UnrealNetwork.h"
 #include "Interfaces/InteractableInterface.h"
-
+#include "AbilitySystemComponent.h"
+#include "BMPAttributeSetBase.h"
 #include "BMPWeapon.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -38,6 +39,17 @@ ABMPCharacter::ABMPCharacter()
 	//Mesh1P->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 	bReplicates = true;
+
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>("AbilitySystemComponent");
+	AbilitySystemComponent->SetIsReplicated(true);
+
+	AttributeSetBase = CreateDefaultSubobject<UBMPAttributeSetBase>("AttributeSetBase"); /*There is a known bug (not on my end) with child blueprints and attribute sets*/
+	AttributeSetBase->InitHealth(100.F);
+	AttributeSetBase->InitMaxHealth(100.F);
+	AbilitySystemComponent->AddSpawnedAttribute(AttributeSetBase);
+
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetHealthAttribute()).AddUObject(this, &ABMPCharacter::HandleHealthChanged);
+
 }
 
 void ABMPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -109,6 +121,11 @@ void ABMPCharacter::OnRep_Weapon()
 		UE_LOG(LogTemp, Warning, TEXT("OnRep_Weapon::IsLocallyControlled()"))
 		//We need to ask to bind inputs and pass in our input component or something.
 	}
+}
+
+void ABMPCharacter::HandleHealthChanged(const FOnAttributeChangeData& Data)
+{
+	UE_LOG(LogTemp, Display, TEXT("%s: HandleHealthChanged"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 }
 
 void ABMPCharacter::Move(const FInputActionValue& Value)
