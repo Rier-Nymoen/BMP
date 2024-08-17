@@ -6,7 +6,7 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "AbilitySystemInterface.h"
-#include "GameplayEffectTypes.h"
+//#include "GameplayEffectTypes.h"
 #include "BMPCharacter.generated.h"
 
 
@@ -19,6 +19,8 @@ class USoundBase;
 
 class ABMPWeapon;
 class UAbilitySystemComponent;
+
+struct FOnAttributeChangeData;
 
 
 UCLASS(config=Game)
@@ -112,8 +114,11 @@ protected:
 
 	UFUNCTION()
 	void OnRep_Weapon();
+	
 
 public:
+	float GetHealth() const;
+
 	UAbilitySystemComponent* AbilitySystemComponent;
 
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }

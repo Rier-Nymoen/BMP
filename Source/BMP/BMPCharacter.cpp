@@ -123,6 +123,11 @@ void ABMPCharacter::OnRep_Weapon()
 	}
 }
 
+float ABMPCharacter::GetHealth() const
+{
+	return AttributeSetBase->GetHealth();
+}
+
 void ABMPCharacter::HandleHealthChanged(const FOnAttributeChangeData& Data)
 {
 	UE_LOG(LogTemp, Display, TEXT("%s: HandleHealthChanged"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));

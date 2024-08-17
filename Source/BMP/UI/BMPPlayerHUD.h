@@ -9,20 +9,25 @@
 /**
  * 
  */
+class UTextBlock;
+
 UCLASS()
 class BMP_API UBMPPlayerHUD : public UBMPUserWidget
 {
 	GENERATED_BODY()
 public:
-
+	UBMPPlayerHUD();
 protected:
 	virtual void NativeConstruct() override;
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	class UTextBlock* CurrentAmmoText;
+	UTextBlock* CurrentAmmoText;
 
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	class UTextBlock* ReserveAmmoText;
+	UTextBlock* ReserveAmmoText;
+
+	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+	UTextBlock* HealthText;
 };

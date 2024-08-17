@@ -31,16 +31,23 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Health", ReplicatedUsing = OnRep_Health)
 	FGameplayAttributeData Health;
+
 	ATTRIBUTE_ACCESSORS(UBMPAttributeSetBase, Health)
 
 	UFUNCTION()
 	virtual void OnRep_Health(const FGameplayAttributeData& OldHealth);
 
-
-	UPROPERTY(BlueprintReadOnly, Category = "Max", ReplicatedUsing = OnRep_MaxHealth)
+	UPROPERTY(BlueprintReadOnly, Category = "Health", ReplicatedUsing = OnRep_MaxHealth)
 	FGameplayAttributeData MaxHealth;
+
 	ATTRIBUTE_ACCESSORS(UBMPAttributeSetBase, MaxHealth)
 
 	UFUNCTION()
 	virtual void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
+
+	//Meta Attribute
+	UPROPERTY(BlueprintReadOnly, Category = "Damage")
+	FGameplayAttributeData Damage;
+
+	ATTRIBUTE_ACCESSORS(UBMPAttributeSetBase, Damage)
 };
