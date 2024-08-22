@@ -55,7 +55,6 @@ ABMPCharacter::ABMPCharacter()
 void ABMPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ABMPCharacter, Health)
 	DOREPLIFETIME(ABMPCharacter, Weapon)
 }
 
@@ -95,19 +94,6 @@ void ABMPCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInput
 	}
 }
 
-void ABMPCharacter::OnRep_Health()
-{
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("%s's Current Health is %f."), *GetNameSafe(this), Health)
-	}
-
-	if(IsLocallyControlled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Your Current Health is %f."), Health)
-	}
-}
-
 void ABMPCharacter::OnRep_Weapon()
 {
 	UE_LOG(LogTemp, Warning, TEXT("OnRep_WeaponChanged"))
@@ -119,7 +105,8 @@ void ABMPCharacter::OnRep_Weapon()
 		*/
 
 		UE_LOG(LogTemp, Warning, TEXT("OnRep_Weapon::IsLocallyControlled()"))
-		//We need to ask to bind inputs and pass in our input component or something.
+			//We need to ask to bind inputs and pass in our input component or something.
+			Weapon->OnEquip(this);
 	}
 }
 

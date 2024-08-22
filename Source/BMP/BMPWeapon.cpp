@@ -24,8 +24,15 @@ ABMPWeapon::ABMPWeapon()
 	
 	Mesh3P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh3P");
 	SetRootComponent(Mesh3P);
+	Mesh3P->bOwnerNoSee = true;
+
+	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh1P");
+	Mesh1P->bOnlyOwnerSee = true;
+	Mesh1P->SetupAttachment(GetRootComponent());
+
 	PickUpComponent = CreateDefaultSubobject<UBMPPickupComponent>("PickUpComponent");
 	PickUpComponent->SetupAttachment(GetRootComponent());
+
 	HitscanRange = 15000.f;
 
 	bWantsToFire = false;
@@ -99,10 +106,18 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 	}
 	SetOwner(Character);
 	SetInstigator(Character);
+	//Move this code to another function possibly. Keep character == nullptr check
 
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, true);
-	GetMesh3P()->AttachToComponent(Character->GetMesh(), TransformRules, "hand_r");
-
+	if (GetMesh3P())
+	{
+		GetMesh3P()->AttachToComponent(Character->GetMesh(), TransformRules, "GripPoint");
+	}
+	if (GetMesh1P())
+	{
+		GetMesh1P()->AttachToComponent(Character->GetMesh1P(), TransformRules, "GripPoint");
+		UE_LOG(LogTemp, Display, TEXT("%s: 1P Attachment"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+	}
 }
 
 void ABMPWeapon::StartFire()
@@ -130,7 +145,6 @@ void ABMPWeapon::StopFire()
 	}
 
 	bWantsToFire = false;
-	
 }
 
 void ABMPWeapon::ServerStopFire_Implementation()
@@ -185,8 +199,9 @@ void ABMPWeapon::FireHitscan()
 		PlayerController->GetPlayerViewPoint(AimLocation, AimRotation);
 		FVector StartTrace = AimLocation;
 		FVector EndTrace = StartTrace + (AimRotation.Vector() * HitscanRange);
-		FCollisionQueryParams CollisionQueryParams;
-		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, CollisionQueryParams);
+		FCollisionQueryParams TraceParams;
+		TraceParams.AddIgnoredActor(Character);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, TraceParams);
 		if (bHit)
 		{
 			ServerProcessHit(HitResult);
@@ -393,8 +408,3 @@ void ABMPWeapon::ServerFireProjectile_Implementation(FVector AimLocation, FRotat
 		UGameplayStatics::FinishSpawningActor(Projectile, AimTransform);
 	}
 }
-
-
-
-
-

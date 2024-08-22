@@ -102,15 +102,6 @@ public:
 	ABMPWeapon* GetEquippedWeapon() const { return Weapon; }
 
 protected:
-	//attributes for networking test only.
-	UPROPERTY(VisibleAnywhere)
-	float MaxHealth;
-
-	UPROPERTY(ReplicatedUsing = OnRep_Health)
-	float Health;
-
-	UFUNCTION()
-	void OnRep_Health();
 
 	UFUNCTION()
 	void OnRep_Weapon();

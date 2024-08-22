@@ -36,6 +36,7 @@ void UBMPAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCal
 	UAbilitySystemComponent* Source = Context.GetOriginalInstigatorAbilitySystemComponent();
 	AActor* EffectInstigator = Context.GetInstigator();
 	AActor* TargetActor = nullptr;
+	UE_LOG(LogTemp, Display, TEXT("%s PostGameplayEffectExecute."), EffectInstigator->GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 
 	if (Data.Target.AbilityActorInfo.IsValid() && Data.Target.AbilityActorInfo->AvatarActor.IsValid())
 	{
@@ -45,7 +46,11 @@ void UBMPAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCal
 
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
-		UE_LOG(LogTemp, Display, TEXT("%s DAMAGE ATTRIBUTE"), EffectInstigator->GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+		float OldHealth = GetHealth();
+
+		SetHealth(GetHealth() - GetDamage());
+		OnRep_Health(OldHealth);
+		SetDamage(0.f);
 	}
 }
 
