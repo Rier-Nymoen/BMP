@@ -10,6 +10,7 @@
  * 
  */
 class UTextBlock;
+class ABMPPlayerState;
 
 UCLASS()
 class BMP_API UBMPPlayerHUD : public UBMPUserWidget
@@ -17,6 +18,9 @@ class BMP_API UBMPPlayerHUD : public UBMPUserWidget
 	GENERATED_BODY()
 public:
 	UBMPPlayerHUD();
+
+	void DisplayKillMessage(const ABMPPlayerState* KillerPlayerState, const ABMPPlayerState* VictimPlayerState);
+
 protected:
 	virtual void NativeConstruct() override;
 

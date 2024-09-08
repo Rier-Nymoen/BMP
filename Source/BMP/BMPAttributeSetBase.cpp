@@ -15,7 +15,6 @@ void UBMPAttributeSetBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION_NOTIFY(UBMPAttributeSetBase, Health, COND_None, REPNOTIFY_Always)
 	DOREPLIFETIME_CONDITION_NOTIFY(UBMPAttributeSetBase, MaxHealth, COND_None, REPNOTIFY_Always)
-
 }
 
 void UBMPAttributeSetBase::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -36,14 +35,13 @@ void UBMPAttributeSetBase::PostGameplayEffectExecute(const FGameplayEffectModCal
 	UAbilitySystemComponent* Source = Context.GetOriginalInstigatorAbilitySystemComponent();
 	AActor* EffectInstigator = Context.GetInstigator();
 	AActor* TargetActor = nullptr;
-	UE_LOG(LogTemp, Display, TEXT("%s PostGameplayEffectExecute."), EffectInstigator->GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 
 	if (Data.Target.AbilityActorInfo.IsValid() && Data.Target.AbilityActorInfo->AvatarActor.IsValid())
 	{
 		//assign
 		TargetActor = Data.Target.AbilityActorInfo->AvatarActor.Get();
 	}
-
+	//Because Im modifying the health directly, this change doesnt generate GEModData. Its not using a Gameplay Effect Spec to do it.
 	if (Data.EvaluatedData.Attribute == GetDamageAttribute())
 	{
 		float OldHealth = GetHealth();

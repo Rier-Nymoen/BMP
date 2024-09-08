@@ -18,10 +18,13 @@ public:
 
 	virtual void InitGameState() override;
 
+	virtual void NotifyPawnDeath(const APawn* Killer, const APawn* Victim);
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	int32 ScoreToWin;
-
+	
+	int32 NumTeams;
 };
 
 

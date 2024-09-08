@@ -13,5 +13,11 @@ UCLASS()
 class BMP_API ABMPGameState : public AGameState
 {
 	GENERATED_BODY()
+public:
+	ABMPGameState();
+
+protected:
+	UPROPERTY(EditDefaultsOnly)
+	TArray<int32> TeamScores;
 	
 };

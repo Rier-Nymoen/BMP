@@ -6,9 +6,7 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "AbilitySystemInterface.h"
-//#include "GameplayEffectTypes.h"
 #include "BMPCharacter.generated.h"
-
 
 class UInputComponent;
 class USkeletalMeshComponent;
@@ -22,6 +20,17 @@ class UAbilitySystemComponent;
 
 struct FOnAttributeChangeData;
 
+USTRUCT()
+struct FDamageTakenInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	bool bIsDead;
+
+	UPROPERTY()
+	AActor* DamageInstigator;
+};
 
 UCLASS(config=Game)
 class ABMPCharacter : public ACharacter, public IAbilitySystemInterface
@@ -53,7 +62,6 @@ protected:
 	void Look(const FInputActionValue& Value);
 
 	void Interact();
-
 
 protected:
 	// APawn interface
@@ -106,7 +114,6 @@ protected:
 	UFUNCTION()
 	void OnRep_Weapon();
 	
-
 public:
 	float GetHealth() const;
 
@@ -117,5 +124,14 @@ public:
 	class UBMPAttributeSetBase* AttributeSetBase;
 protected:
 	virtual void HandleHealthChanged(const FOnAttributeChangeData& Data);
+
+	virtual void Die(AActor* DeathInstigator);
+
+	UPROPERTY(ReplicatedUsing = OnRep_LastDamageTakenInfo)
+	FDamageTakenInfo LastDamageTakenInfo;
+
+	UFUNCTION()
+	void OnRep_LastDamageTakenInfo();
+
 };
 

@@ -52,8 +52,6 @@ ABMPWeapon::ABMPWeapon()
 	FireRateSeconds = 0.2f;
 	ReloadTimeSeconds = 0.33f;
 	LastTimeFiredSeconds = -1.f;
-
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>("AbilitySystemComponent");
 }
 
 void ABMPWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -116,7 +114,6 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 	if (GetMesh1P())
 	{
 		GetMesh1P()->AttachToComponent(Character->GetMesh1P(), TransformRules, "GripPoint");
-		UE_LOG(LogTemp, Display, TEXT("%s: 1P Attachment"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 	}
 }
 
@@ -129,7 +126,6 @@ void ABMPWeapon::StartFire()
 	
 	bWantsToFire = true;
 	CurrentState->HandleFireInput();
-
 }
 
 void ABMPWeapon::ServerStartFire_Implementation()
@@ -206,9 +202,8 @@ void ABMPWeapon::FireHitscan()
 		{
 			ServerProcessHit(HitResult);
 		}
-		//UE_LOG(LogTemp, Display, TEXT("%s: Hitscan"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 		
-		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::White, false, 35.f);
+		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Yellow, false, FireRateSeconds + 0.05f);
 	}
 }
 
@@ -232,7 +227,6 @@ void ABMPWeapon::FireProjectile()
 
 void ABMPWeapon::OnRep_Character()
 {
-	UE_LOG(LogTemp, Display, TEXT("%s: OnRepCharacter"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 
 	BindInput(Character); 
 }
@@ -324,7 +318,6 @@ void ABMPWeapon::ReloadWeapon()
 
 void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ServerProcessHit"))
 	AActor* HitActor = HitResult.GetActor();
 	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(HitActor);
 	if (!AbilitySystemInterface)
@@ -337,18 +330,17 @@ void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
 		return;
 	}
 	check(GetInstigator())
-	if (AbilitySystemComponent)
+	if (Character->GetAbilitySystemComponent())
 	{
 		if (DamageEffect)
 		{
-			FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+			FGameplayEffectContextHandle EffectContext = Character->GetAbilitySystemComponent()->MakeEffectContext();
 			EffectContext.AddHitResult(HitResult);
-			EffectContext.AddInstigator(GetInstigator(), this);
 
 			FPredictionKey PredictionKey;
 			const FGameplayEffectSpecHandle DamageEffectSpec = TargetAbilitySystemComponent->MakeOutgoingSpec(DamageEffect, 0.F, EffectContext);
 
-			AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*DamageEffectSpec.Data, TargetAbilitySystemComponent);
+			Character->GetAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(*DamageEffectSpec.Data, TargetAbilitySystemComponent);
 		}
 	}
 }

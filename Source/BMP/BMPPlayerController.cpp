@@ -2,7 +2,16 @@
 
 
 #include "BMPPlayerController.h"
+#include "Game/BMPPlayerState.h"
 #include "UI/BMPPlayerHUD.h"
+
+void ABMPPlayerController::DisplayKillMessage(const ABMPPlayerState* KillerPlayerState, const ABMPPlayerState* VictimPlayerState)
+{
+	if (PlayerHUD)
+	{
+		PlayerHUD->DisplayKillMessage(KillerPlayerState, VictimPlayerState);
+	}
+}
 
 void ABMPPlayerController::BeginPlay()
 {
