@@ -1,16 +1,23 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "BMPCharacter.h"
-#include "BMPProjectile.h"
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "Net/UnrealNetwork.h"
 #include "Interfaces/InteractableInterface.h"
-
 #include "BMPWeapon.h"
+#include "Game/BMPGameMode.h"
+
+#include "Net/UnrealNetwork.h"
+
+#include "AbilitySystemComponent.h"
+#include "BMPAttributeSetBase.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameplayEffect.h"
+#include "GameplayEffectTypes.h"
+#include "GameplayEffectExtension.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ABMPCharacter
@@ -38,13 +45,26 @@ ABMPCharacter::ABMPCharacter()
 	//Mesh1P->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 	bReplicates = true;
+
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>("AbilitySystemComponent");
+	AbilitySystemComponent->SetIsReplicated(true);
+
+	AttributeSetBase = CreateDefaultSubobject<UBMPAttributeSetBase>("AttributeSetBase"); /*There is a known bug (not on my end) with child blueprints and attribute sets*/
+	AttributeSetBase->InitHealth(100.F);
+	AttributeSetBase->InitMaxHealth(100.F);
+
+	AbilitySystemComponent->AddSpawnedAttribute(AttributeSetBase);
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(AttributeSetBase->GetHealthAttribute()).AddUObject(this, &ABMPCharacter::HandleHealthChanged);
+
+	LastDamageTakenInfo.bIsDead = false;
+	LastDamageTakenInfo.DamageInstigator = nullptr;
 }
 
 void ABMPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ABMPCharacter, Health)
 	DOREPLIFETIME(ABMPCharacter, Weapon)
+	DOREPLIFETIME(ABMPCharacter, LastDamageTakenInfo)
 }
 
 void ABMPCharacter::BeginPlay()
@@ -83,31 +103,82 @@ void ABMPCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInput
 	}
 }
 
-void ABMPCharacter::OnRep_Health()
-{
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("%s's Current Health is %f."), *GetNameSafe(this), Health)
-	}
-
-	if(IsLocallyControlled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Your Current Health is %f."), Health)
-	}
-}
-
 void ABMPCharacter::OnRep_Weapon()
 {
 	UE_LOG(LogTemp, Warning, TEXT("OnRep_WeaponChanged"))
-	if (IsLocallyControlled() && Weapon != nullptr) //if locally controlled, if weapon isnt nullptr
+	if (IsLocallyControlled() && Weapon != nullptr)
 	{
-		/*
-		We cant call OnRep_Weapon() which needs to be called if a listen-server wants to equip the weapon.
-		We would have to change the replicated value within the character. This is for good organization.
-		*/
+		Weapon->OnEquip(this);
+	}
+}
 
-		UE_LOG(LogTemp, Warning, TEXT("OnRep_Weapon::IsLocallyControlled()"))
-		//We need to ask to bind inputs and pass in our input component or something.
+float ABMPCharacter::GetHealth() const
+{
+	return AttributeSetBase->GetHealth();
+}
+
+void ABMPCharacter::HandleHealthChanged(const FOnAttributeChangeData& Data)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		AActor* DamageInstigator = nullptr;
+		if (Data.GEModData)
+		{
+			const FGameplayEffectSpec& EffectSpec = Data.GEModData->EffectSpec;
+			const FGameplayEffectContextHandle& EffectContext = EffectSpec.GetContext();
+
+			DamageInstigator = EffectContext.GetInstigator();
+		}
+
+		if(Data.NewValue <= 0.0f && !LastDamageTakenInfo.bIsDead)
+		{
+			Die(DamageInstigator);
+		}
+		else
+		{
+		}
+	}
+}
+
+void ABMPCharacter::Die(AActor* DeathInstigator)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		if (GetWorld())
+		{
+			APawn* DeathInstigatorPawn = Cast<APawn>(DeathInstigator);
+			if (DeathInstigatorPawn)
+			{
+				GetWorld()->GetAuthGameMode<ABMPGameMode>()->NotifyPawnDeath(DeathInstigatorPawn, this);
+			}
+		}
+	}
+
+	if (Controller)
+	{
+		Controller->UnPossess();
+	}
+
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->WakeAllRigidBodies();
+	GetMesh()->bBlendPhysics = true;
+
+	GetCharacterMovement()->StopMovementImmediately();
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->SetComponentTickEnabled(false);
+
+	LastDamageTakenInfo.bIsDead = true;
+	LastDamageTakenInfo.DamageInstigator = DeathInstigator;
+
+	return;
+}
+
+void ABMPCharacter::OnRep_LastDamageTakenInfo()
+{
+	UE_LOG(LogTemp, Warning, TEXT(""))
+	if (LastDamageTakenInfo.bIsDead)
+	{
+		Die(LastDamageTakenInfo.DamageInstigator);
 	}
 }
 

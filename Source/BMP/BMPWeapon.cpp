@@ -13,6 +13,8 @@
 #include "Weapon/BMPWeaponStateReloading.h"
 
 #include "Sound/SoundCue.h"
+#include "AbilitySystemComponent.h"
+#include"AbilitySystemInterface.h"
 
 // Sets default values
 ABMPWeapon::ABMPWeapon()
@@ -22,8 +24,15 @@ ABMPWeapon::ABMPWeapon()
 	
 	Mesh3P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh3P");
 	SetRootComponent(Mesh3P);
+	Mesh3P->bOwnerNoSee = true;
+
+	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh1P");
+	Mesh1P->bOnlyOwnerSee = true;
+	Mesh1P->SetupAttachment(GetRootComponent());
+
 	PickUpComponent = CreateDefaultSubobject<UBMPPickupComponent>("PickUpComponent");
 	PickUpComponent->SetupAttachment(GetRootComponent());
+
 	HitscanRange = 15000.f;
 
 	bWantsToFire = false;
@@ -95,10 +104,17 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 	}
 	SetOwner(Character);
 	SetInstigator(Character);
+	//Move this code to another function possibly. Keep character == nullptr check
 
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, true);
-	GetMesh3P()->AttachToComponent(Character->GetMesh(), TransformRules, "hand_r");
-
+	if (GetMesh3P())
+	{
+		GetMesh3P()->AttachToComponent(Character->GetMesh(), TransformRules, "GripPoint");
+	}
+	if (GetMesh1P())
+	{
+		GetMesh1P()->AttachToComponent(Character->GetMesh1P(), TransformRules, "GripPoint");
+	}
 }
 
 void ABMPWeapon::StartFire()
@@ -110,7 +126,6 @@ void ABMPWeapon::StartFire()
 	
 	bWantsToFire = true;
 	CurrentState->HandleFireInput();
-
 }
 
 void ABMPWeapon::ServerStartFire_Implementation()
@@ -126,7 +141,6 @@ void ABMPWeapon::StopFire()
 	}
 
 	bWantsToFire = false;
-	
 }
 
 void ABMPWeapon::ServerStopFire_Implementation()
@@ -181,15 +195,15 @@ void ABMPWeapon::FireHitscan()
 		PlayerController->GetPlayerViewPoint(AimLocation, AimRotation);
 		FVector StartTrace = AimLocation;
 		FVector EndTrace = StartTrace + (AimRotation.Vector() * HitscanRange);
-		FCollisionQueryParams CollisionQueryParams;
-		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, CollisionQueryParams);
+		FCollisionQueryParams TraceParams;
+		TraceParams.AddIgnoredActor(Character);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, TraceParams);
 		if (bHit)
 		{
 			ServerProcessHit(HitResult);
 		}
-		//UE_LOG(LogTemp, Display, TEXT("%s: Hitscan"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 		
-		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::White, false, 35.f);
+		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Yellow, false, FireRateSeconds + 0.05f);
 	}
 }
 
@@ -213,7 +227,6 @@ void ABMPWeapon::FireProjectile()
 
 void ABMPWeapon::OnRep_Character()
 {
-	UE_LOG(LogTemp, Display, TEXT("%s: OnRepCharacter"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 
 	BindInput(Character); 
 }
@@ -305,7 +318,31 @@ void ABMPWeapon::ReloadWeapon()
 
 void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ServerProcessHit"))
+	AActor* HitActor = HitResult.GetActor();
+	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(HitActor);
+	if (!AbilitySystemInterface)
+	{
+		return;
+	}
+	UAbilitySystemComponent* TargetAbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent();
+	if (!TargetAbilitySystemComponent)
+	{
+		return;
+	}
+	check(GetInstigator())
+	if (Character->GetAbilitySystemComponent())
+	{
+		if (DamageEffect)
+		{
+			FGameplayEffectContextHandle EffectContext = Character->GetAbilitySystemComponent()->MakeEffectContext();
+			EffectContext.AddHitResult(HitResult);
+
+			FPredictionKey PredictionKey;
+			const FGameplayEffectSpecHandle DamageEffectSpec = TargetAbilitySystemComponent->MakeOutgoingSpec(DamageEffect, 0.F, EffectContext);
+
+			Character->GetAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(*DamageEffectSpec.Data, TargetAbilitySystemComponent);
+		}
+	}
 }
 
 void ABMPWeapon::ServerReloadWeapon_Implementation()
@@ -363,8 +400,3 @@ void ABMPWeapon::ServerFireProjectile_Implementation(FVector AimLocation, FRotat
 		UGameplayStatics::FinishSpawningActor(Projectile, AimTransform);
 	}
 }
-
-
-
-
-

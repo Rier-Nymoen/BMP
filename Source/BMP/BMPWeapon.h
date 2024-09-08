@@ -5,11 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interfaces/InteractableInterface.h"
+
 #include "BMPWeapon.generated.h"
 
 class USkeletalMeshComponent;
 class ABMPCharacter;
 class UInputAction;
+
 
 UCLASS()
 class BMP_API ABMPWeapon : public AActor, public IInteractableInterface
@@ -179,4 +181,8 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class USoundCue* FireSoundCue;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite	)
+	TSubclassOf<class UGameplayEffect> DamageEffect;
 };

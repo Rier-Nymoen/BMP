@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "AbilitySystemInterface.h"
 #include "BMPCharacter.generated.h"
 
 class UInputComponent;
@@ -15,10 +16,24 @@ class UAnimMontage;
 class USoundBase;
 
 class ABMPWeapon;
+class UAbilitySystemComponent;
 
+struct FOnAttributeChangeData;
+
+USTRUCT()
+struct FDamageTakenInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	bool bIsDead;
+
+	UPROPERTY()
+	AActor* DamageInstigator;
+};
 
 UCLASS(config=Game)
-class ABMPCharacter : public ACharacter
+class ABMPCharacter : public ACharacter, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 public:
@@ -47,7 +62,6 @@ protected:
 	void Look(const FInputActionValue& Value);
 
 	void Interact();
-
 
 protected:
 	// APawn interface
@@ -96,17 +110,28 @@ public:
 	ABMPWeapon* GetEquippedWeapon() const { return Weapon; }
 
 protected:
-	//attributes for networking test only.
-	UPROPERTY(VisibleAnywhere)
-	float MaxHealth;
-
-	UPROPERTY(ReplicatedUsing = OnRep_Health)
-	float Health;
-
-	UFUNCTION()
-	void OnRep_Health();
 
 	UFUNCTION()
 	void OnRep_Weapon();
+	
+public:
+	float GetHealth() const;
+
+	UAbilitySystemComponent* AbilitySystemComponent;
+
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }
+
+	class UBMPAttributeSetBase* AttributeSetBase;
+protected:
+	virtual void HandleHealthChanged(const FOnAttributeChangeData& Data);
+
+	virtual void Die(AActor* DeathInstigator);
+
+	UPROPERTY(ReplicatedUsing = OnRep_LastDamageTakenInfo)
+	FDamageTakenInfo LastDamageTakenInfo;
+
+	UFUNCTION()
+	void OnRep_LastDamageTakenInfo();
+
 };
 

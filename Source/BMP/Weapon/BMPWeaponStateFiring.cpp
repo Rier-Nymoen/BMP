@@ -5,7 +5,6 @@
 #include "BMP/BMPWeapon.h"
 void UBMPWeaponStateFiring::EnterState()
 {
-	//UE_LOG(LogTemp, Display, TEXT("Enter Firing"))
 	if (ABMPWeapon* OwningWeapon = GetOwningWeapon())
 	{
 		const float CurrentTime = GetWorld()->GetTimeSeconds();
@@ -33,7 +32,6 @@ void UBMPWeaponStateFiring::HandleReloadInput()
 
 void UBMPWeaponStateFiring::CheckRefireTimer()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Timer Called"))
 	if (ABMPWeapon* OwningWeapon = GetOwningWeapon())
 	{
 		if (OwningWeapon->bWantsToFire && OwningWeapon->HasAmmoInMagazine())

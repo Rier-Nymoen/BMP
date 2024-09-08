@@ -7,6 +7,7 @@
 #include "BMPPlayerController.generated.h"
 
 class UBMPPlayerHUD;
+class ABMPPlayerState;
 /**
  * 
  */
@@ -16,6 +17,9 @@ class BMP_API ABMPPlayerController : public APlayerController
 	GENERATED_BODY()
 public:
 	UBMPPlayerHUD* GetPlayerHUD() const { return PlayerHUD; }
+
+	//maybe bind an event instead.
+	void DisplayKillMessage(const ABMPPlayerState* KillerPlayerState, const ABMPPlayerState* VictimPlayerState);
 	
 protected:
 	virtual void BeginPlay() override;

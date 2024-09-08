@@ -12,3 +12,14 @@ ABMPGameMode_Deathmatch::ABMPGameMode_Deathmatch()
 	PlayerStateClass = ABMPGameMode_Deathmatch::StaticClass();
 	GameStateClass = ABMPGameState::StaticClass();
 }
+
+void ABMPGameMode_Deathmatch::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+	UE_LOG(LogTemp, Display, TEXT("InitGame() - MapName: %s"), *MapName);
+}
+
+void ABMPGameMode_Deathmatch::InitGameState()
+{
+	Super::InitGameState();
+}
