@@ -36,7 +36,7 @@ void ABMPGameMode::NotifyPawnDeath(const APawn* Killer, const APawn* Victim)
 {
 	AController* KillerController = Killer->GetController();
 	AController* VictimController = Victim->GetController();
-	//this is probably a crash, let's see.
+
 	ABMPPlayerState* VictimPlayerState = nullptr;
 	ABMPPlayerState* KillerPlayerState = nullptr;
 
@@ -59,5 +59,4 @@ void ABMPGameMode::NotifyPawnDeath(const APawn* Killer, const APawn* Victim)
 	{
 		KillerPlayerState->ScoreKill();
 	}
-
 }

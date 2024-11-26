@@ -122,6 +122,7 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }
 
 	class UBMPAttributeSetBase* AttributeSetBase;
+
 protected:
 	virtual void HandleHealthChanged(const FOnAttributeChangeData& Data);
 

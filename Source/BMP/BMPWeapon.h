@@ -23,7 +23,7 @@ public:
 	ABMPWeapon();
 
 	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	virtual void Tick(float DeltaSeconds) override;
 
 	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -67,6 +67,9 @@ protected:
 	virtual void PlayFiringEffects();
 
 	virtual void FireHitscan();
+
+	UFUNCTION(Server, Reliable)
+	virtual void ServerProcessHit(const FHitResult& HitResult);
 
 	virtual void FireProjectile();
 
@@ -145,6 +148,7 @@ protected:
 public:
 
 	int32 GetCurrentAmmo() const { return CurrentAmmo; }
+
 	int32 GetCurrentAmmoReserves() const { return CurrentAmmoReserves; }
 
 	bool HasAmmoInMagazine() const  { return CurrentAmmo > 0; }
@@ -176,13 +180,35 @@ protected:
 	UFUNCTION(Server, Reliable)
 	virtual void ServerReloadWeapon();
 
-	UFUNCTION(Server, Reliable)
-	virtual void ServerProcessHit(const FHitResult& HitResult);
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class USoundCue* FireSoundCue;
 
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite	)
+	bool bIsFiring;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<class UGameplayEffect> DamageEffect;
+
+	virtual void ApplyRecoil();
+
+	virtual void UpdateRecoil(float DeltaSeconds);
+
+	FVector RecoilOffset;
+
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float MaxVerticalRecoilOffsetPerShot;
+
+	float RecoilSpeed;
+
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float MaxRecoilSpeed;
+
+	float RecoilAcceleration;
+
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilForce;
+
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilRecoverySpeed;
+
+	//first shot recoil.
 };

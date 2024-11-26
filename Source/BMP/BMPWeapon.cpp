@@ -11,10 +11,13 @@
 #include "Weapon/BMPWeaponStateIdle.h"
 #include "Weapon/BMPWeaponStateFiring.h"
 #include "Weapon/BMPWeaponStateReloading.h"
-
+#include "Camera/CameraComponent.h"
 #include "Sound/SoundCue.h"
 #include "AbilitySystemComponent.h"
 #include"AbilitySystemInterface.h"
+
+#include "Components/DecalComponent.h"
+
 
 // Sets default values
 ABMPWeapon::ABMPWeapon()
@@ -27,8 +30,8 @@ ABMPWeapon::ABMPWeapon()
 	Mesh3P->bOwnerNoSee = true;
 
 	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh1P");
-	Mesh1P->bOnlyOwnerSee = true;
 	Mesh1P->SetupAttachment(GetRootComponent());
+	Mesh1P->bOnlyOwnerSee = true;
 
 	PickUpComponent = CreateDefaultSubobject<UBMPPickupComponent>("PickUpComponent");
 	PickUpComponent->SetupAttachment(GetRootComponent());
@@ -36,6 +39,7 @@ ABMPWeapon::ABMPWeapon()
 	HitscanRange = 15000.f;
 
 	bWantsToFire = false;
+	bIsFiring = false;
 
 	bReplicates = true;
 
@@ -57,6 +61,7 @@ ABMPWeapon::ABMPWeapon()
 void ABMPWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
 	DOREPLIFETIME(ABMPWeapon, Character);
 
 	DOREPLIFETIME_CONDITION(ABMPWeapon, MaxAmmoReserves, COND_OwnerOnly);
@@ -89,9 +94,27 @@ void ABMPWeapon::BeginPlay()
 }
 
 // Called every frame
-void ABMPWeapon::Tick(float DeltaTime)
+void ABMPWeapon::Tick(float DeltaSeconds)
 {
-	Super::Tick(DeltaTime);
+	Super::Tick(DeltaSeconds);
+	UpdateRecoil(DeltaSeconds);
+}
+
+void ABMPWeapon::UpdateRecoil(float DeltaSeconds)
+{
+	float VerticalRecoilToApplyThisFrame = FMath::Clamp(RecoilOffset.Z, 0.f, DeltaSeconds * RecoilSpeed);
+	RecoilOffset.Z -= VerticalRecoilToApplyThisFrame; 	if (Character)
+	{
+		APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
+		
+		if(PlayerController)
+		{
+			PlayerController->AddPitchInput(-VerticalRecoilToApplyThisFrame);
+		}
+	}
+	if (!bIsFiring)
+	{
+	}
 }
 
 void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little about the character as possible. If the character dies, we need to ensure the input works properly for each person picking it up, not anyone else.
@@ -150,6 +173,7 @@ void ABMPWeapon::ServerStopFire_Implementation()
 
 void ABMPWeapon::Fire()
 {
+	UE_LOG(LogTemp, Display, TEXT("Running on %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		PlayFiringEffects();
@@ -157,6 +181,8 @@ void ABMPWeapon::Fire()
 
 	if (Character && Character->IsLocallyControlled())
 	{
+		UE_LOG(LogTemp, Display, TEXT("Locally controlled by: %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+
 		if (ProjectileClass)
 		{
 			FireProjectile();
@@ -167,6 +193,8 @@ void ABMPWeapon::Fire()
 		}
 	}
 
+	ApplyRecoil();
+
 	AddAmmo(-AmmoCost);
 
 	LastTimeFiredSeconds = GetWorld()->GetTimeSeconds();
@@ -174,7 +202,6 @@ void ABMPWeapon::Fire()
 
 void ABMPWeapon::PlayFiringEffects()
 {
-	//UE_LOG(LogTemp, Warning, TEXT("PlayingFiringEffects"))
 	UGameplayStatics::PlaySoundAtLocation(this, FireSoundCue, GetActorLocation(), 0.35, 1.F, 0.0f);
 }
 
@@ -189,7 +216,7 @@ void ABMPWeapon::FireHitscan()
 	FHitResult HitResult;
 	FVector AimLocation;
 	FRotator AimRotation;
-
+	
 	if (PlayerController)
 	{
 		PlayerController->GetPlayerViewPoint(AimLocation, AimRotation);
@@ -202,8 +229,35 @@ void ABMPWeapon::FireHitscan()
 		{
 			ServerProcessHit(HitResult);
 		}
-		
-		DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Yellow, false, FireRateSeconds + 0.05f);
+	}
+}
+
+void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
+{
+	AActor* HitActor = HitResult.GetActor();
+	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(HitActor);
+	if (!AbilitySystemInterface)
+	{
+		return;
+	}
+	UAbilitySystemComponent* TargetAbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent();
+	if (!TargetAbilitySystemComponent)
+	{
+		return;
+	}
+	check(GetInstigator())
+	if (Character->GetAbilitySystemComponent())
+	{
+		if (DamageEffect)
+		{
+			FGameplayEffectContextHandle EffectContext = Character->GetAbilitySystemComponent()->MakeEffectContext();
+			EffectContext.AddHitResult(HitResult);
+
+			FPredictionKey PredictionKey;
+			const FGameplayEffectSpecHandle DamageEffectSpec = TargetAbilitySystemComponent->MakeOutgoingSpec(DamageEffect, 0.F, EffectContext);
+
+			Character->GetAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(*DamageEffectSpec.Data, TargetAbilitySystemComponent);
+		}
 	}
 }
 
@@ -222,12 +276,10 @@ void ABMPWeapon::FireProjectile()
 		PlayerController->GetPlayerViewPoint(AimLocation, AimRotation);
 		ServerFireProjectile(AimLocation, AimRotation);
 	}
-
 }
 
 void ABMPWeapon::OnRep_Character()
 {
-
 	BindInput(Character); 
 }
 
@@ -290,12 +342,6 @@ bool ABMPWeapon::IsReadyToFire() const
 	return false;
 }
 
-/*
-Need start and stop methods for input. So a start  fire, server start fire etc. bWantsToFire really matters on authority.
-
-Server determines state. we are just input. think about player feel even at high pings.
-*/
-
 void ABMPWeapon::HandleReloadInput()
 {
 	CurrentState->HandleReloadInput();
@@ -316,33 +362,10 @@ void ABMPWeapon::ReloadWeapon()
 	}
 }
 
-void ABMPWeapon::ServerProcessHit_Implementation(const FHitResult& HitResult)
+void ABMPWeapon::ApplyRecoil()
 {
-	AActor* HitActor = HitResult.GetActor();
-	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(HitActor);
-	if (!AbilitySystemInterface)
-	{
-		return;
-	}
-	UAbilitySystemComponent* TargetAbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent();
-	if (!TargetAbilitySystemComponent)
-	{
-		return;
-	}
-	check(GetInstigator())
-	if (Character->GetAbilitySystemComponent())
-	{
-		if (DamageEffect)
-		{
-			FGameplayEffectContextHandle EffectContext = Character->GetAbilitySystemComponent()->MakeEffectContext();
-			EffectContext.AddHitResult(HitResult);
-
-			FPredictionKey PredictionKey;
-			const FGameplayEffectSpecHandle DamageEffectSpec = TargetAbilitySystemComponent->MakeOutgoingSpec(DamageEffect, 0.F, EffectContext);
-
-			Character->GetAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(*DamageEffectSpec.Data, TargetAbilitySystemComponent);
-		}
-	}
+	RecoilOffset.Z += MaxVerticalRecoilOffsetPerShot;
+	UE_LOG(LogTemp, Warning, TEXT("RecoilOFfset.Z: %f"), RecoilOffset.Z);
 }
 
 void ABMPWeapon::ServerReloadWeapon_Implementation()
@@ -372,26 +395,16 @@ void ABMPWeapon::AddAmmoReserves(float Amount)
 
 void ABMPWeapon::ServerFireHitscan_Implementation(FVector StartTrace, FVector EndTrace)
 {
-	FHitResult HitResult;
-	//@todo: fix collision channels
-	FCollisionQueryParams CollisionResponseParams;
-
-	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartTrace, EndTrace, ECollisionChannel::ECC_Visibility, CollisionResponseParams);
-	if (bHit)
-	{
-
-	}
-	DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Green, false, 1.5f);
-
 }
 
 void ABMPWeapon::ServerFireProjectile_Implementation(FVector AimLocation, FRotator AimRotation)
 {
+	UE_LOG(LogTemp, Display, TEXT("Running on %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 	if (ProjectileClass)
 	{
 		//owner could be this weapon, or the character
 		FTransform AimTransform(AimRotation, AimLocation);
-		ABMPProjectile* Projectile = Cast<ABMPProjectile>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, ProjectileClass, AimTransform));
+		ABMPProjectile* Projectile = Cast<ABMPProjectile>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, ProjectileClass, AimTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn, this));
 
 		//Might be unnecessary.
 		Projectile->GetCollisionComp()->MoveIgnoreActors.Add(this);

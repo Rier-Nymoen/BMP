@@ -8,13 +8,16 @@ ABMPProjectile::ABMPProjectile()
 {
 	// Use a sphere as a simple collision representation
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
-	CollisionComp->InitSphereRadius(5.0f);
+	CollisionComp->InitSphereRadius(32.f);
 	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");
 	CollisionComp->OnComponentHit.AddDynamic(this, &ABMPProjectile::OnHit);		// set up a notification for when this component hits something blocking
-
+	CollisionComp->bHiddenInGame = false;
 	// Players can't walk on it
 	CollisionComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
 	CollisionComp->CanCharacterStepUpOn = ECB_No;
+
+	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
+	MeshComponent->SetupAttachment(CollisionComp);
 
 	// Set as root component
 	RootComponent = CollisionComp;
@@ -27,10 +30,12 @@ ABMPProjectile::ABMPProjectile()
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = true;
 
+
 	// Die after 3 seconds by default
 	InitialLifeSpan = 20.0f;
 	SetReplicateMovement(true);
 	bReplicates = true;
+	
 }
 
 void ABMPProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)

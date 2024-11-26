@@ -19,19 +19,12 @@ class BMP_API UBMPPlayerHUD : public UBMPUserWidget
 public:
 	UBMPPlayerHUD();
 
-	void DisplayKillMessage(const ABMPPlayerState* KillerPlayerState, const ABMPPlayerState* VictimPlayerState);
-
 protected:
 	virtual void NativeConstruct() override;
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	UTextBlock* CurrentAmmoText;
+	void DisplayKillMessage(const ABMPPlayerState* KillerPlayerState, const ABMPPlayerState* VictimPlayerState);
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	UTextBlock* ReserveAmmoText;
-
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
-	UTextBlock* HealthText;
+	//
 };
