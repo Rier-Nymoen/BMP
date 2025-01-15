@@ -63,6 +63,16 @@ protected:
 
 	void Interact();
 
+	void StartCrouch(const FInputActionValue& Value);
+
+	void EndCrouch(const FInputActionValue& Value);
+
+public:
+	UPROPERTY(BlueprintReadOnly)
+	bool bIsSliding;
+
+	virtual bool CanSlide() const;
+
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
@@ -91,12 +101,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* InteractAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	class UInputAction* CrouchAction;
+
 	/** Look Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class UInputAction* LookAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-	class UInputAction* TestFunctionAction;
+	class UBMPCharacterMovementComponent* BMPCharacterMovement;
+
+	UBMPCharacterMovementComponent* GetBMPCharacterMovement() const{ return BMPCharacterMovement; }
 
 public:
 	/** Returns Mesh1P subobject **/

@@ -56,6 +56,9 @@ ABMPWeapon::ABMPWeapon()
 	FireRateSeconds = 0.2f;
 	ReloadTimeSeconds = 0.33f;
 	LastTimeFiredSeconds = -1.f;
+
+	RecoilSpeed = 1000.f;
+	RecoilRecoverySpeed = 100.f;
 }
 
 void ABMPWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -102,22 +105,43 @@ void ABMPWeapon::Tick(float DeltaSeconds)
 
 void ABMPWeapon::UpdateRecoil(float DeltaSeconds)
 {
-	float VerticalRecoilToApplyThisFrame = FMath::Clamp(RecoilOffset.Z, 0.f, DeltaSeconds * RecoilSpeed);
-	RecoilOffset.Z -= VerticalRecoilToApplyThisFrame; 	if (Character)
+	if (Character)
 	{
+		float PitchRecoilOffset = FMath::Clamp(RecoilRotationOffset.Pitch, 0.f, RecoilSpeed * DeltaSeconds);
+		float YawRecoilOffset = FMath::Clamp(RecoilRotationOffset.Yaw, 0.f, RecoilSpeed * DeltaSeconds);
+		FRotator RotationOffset = FRotator(PitchRecoilOffset, YawRecoilOffset, 0.f);
+		RecoilRotationOffset -= RotationOffset;
+
 		APlayerController* PlayerController = Cast<APlayerController>(Character->GetController());
-		
-		if(PlayerController)
+		if (PlayerController)
 		{
-			PlayerController->AddPitchInput(-VerticalRecoilToApplyThisFrame);
+			FRotator UpdatedControlRotation = PlayerController->GetControlRotation() + RotationOffset;
+
+			float DeltaX, DeltaY = 0.f;
+			PlayerController->GetInputMouseDelta(DeltaX, DeltaY);
+
+			FRotator DeltaRotation = PlayerController->GetControlRotation() + FRotator(DeltaX,DeltaY,0.f); 
+			
+			if (!bIsFiring && RecoilRecoveryOffset.Pitch > 0.f)
+			{
+				float PitchRecoilRecovery = FMath::Clamp(RecoilRecoveryOffset.Pitch, 0.f, RecoilRecoverySpeed * DeltaSeconds); 
+
+				RecoilRecoveryOffset.Pitch = FMath::Clamp((RecoilRecoveryOffset.Pitch - PitchRecoilRecovery), 0.f, RecoilRecoveryOffset.Pitch);
+				UpdatedControlRotation -= FRotator(PitchRecoilRecovery, 0.f, 0.f);
+				//UE_LOG(LogTemp, Warning, TEXT("RecoilRecoveryOffset"), *RecoilRecoveryOffset.ToString())
+				//UE_LOG(LogTemp, Warning, TEXT("PitchRecoilRecovery: %f"), PitchRecoilRecovery);
+			}
+
+			if (DeltaY > 0.f)
+			{
+				//UE_LOG(LogTemp, Warning, TEXT("DeltaX: %f, DeltaY: %f"), DeltaX, DeltaY);
+			}
+			PlayerController->ClientSetRotation(UpdatedControlRotation, false);
 		}
-	}
-	if (!bIsFiring)
-	{
 	}
 }
 
-void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little about the character as possible. If the character dies, we need to ensure the input works properly for each person picking it up, not anyone else.
+void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter)
 {
 	Character = NewCharacter;
 	OnRep_Character();
@@ -127,7 +151,6 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 	}
 	SetOwner(Character);
 	SetInstigator(Character);
-	//Move this code to another function possibly. Keep character == nullptr check
 
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, true);
 	if (GetMesh3P())
@@ -137,6 +160,11 @@ void ABMPWeapon::OnEquip(ABMPCharacter* NewCharacter) //want to know as little a
 	if (GetMesh1P())
 	{
 		GetMesh1P()->AttachToComponent(Character->GetMesh1P(), TransformRules, "GripPoint");
+	}
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(Character->GetController()))
+	{
+		LastFrameRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
 	}
 }
 
@@ -173,7 +201,7 @@ void ABMPWeapon::ServerStopFire_Implementation()
 
 void ABMPWeapon::Fire()
 {
-	UE_LOG(LogTemp, Display, TEXT("Running on %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+	//UE_LOG(LogTemp, Display, TEXT("Running on %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		PlayFiringEffects();
@@ -181,7 +209,7 @@ void ABMPWeapon::Fire()
 
 	if (Character && Character->IsLocallyControlled())
 	{
-		UE_LOG(LogTemp, Display, TEXT("Locally controlled by: %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+		//UE_LOG(LogTemp, Display, TEXT("Locally controlled by: %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 
 		if (ProjectileClass)
 		{
@@ -364,8 +392,9 @@ void ABMPWeapon::ReloadWeapon()
 
 void ABMPWeapon::ApplyRecoil()
 {
-	RecoilOffset.Z += MaxVerticalRecoilOffsetPerShot;
-	UE_LOG(LogTemp, Warning, TEXT("RecoilOFfset.Z: %f"), RecoilOffset.Z);
+	FRotator Recoil = FRotator(MaxRecoilPitchOffsetPerShot, MaxRecoilYawOffsetPerShot, 0.f);
+	RecoilRotationOffset += Recoil;
+	RecoilRecoveryOffset += Recoil;
 }
 
 void ABMPWeapon::ServerReloadWeapon_Implementation()
@@ -399,14 +428,13 @@ void ABMPWeapon::ServerFireHitscan_Implementation(FVector StartTrace, FVector En
 
 void ABMPWeapon::ServerFireProjectile_Implementation(FVector AimLocation, FRotator AimRotation)
 {
-	UE_LOG(LogTemp, Display, TEXT("Running on %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
+	//UE_LOG(LogTemp, Display, TEXT("Running on %s"), GetNetMode() == ENetMode::NM_Client ? TEXT("Client") : TEXT("Server"));
 	if (ProjectileClass)
 	{
 		//owner could be this weapon, or the character
 		FTransform AimTransform(AimRotation, AimLocation);
 		ABMPProjectile* Projectile = Cast<ABMPProjectile>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, ProjectileClass, AimTransform, ESpawnActorCollisionHandlingMethod::AlwaysSpawn, this));
 
-		//Might be unnecessary.
 		Projectile->GetCollisionComp()->MoveIgnoreActors.Add(this);
 		Projectile->GetCollisionComp()->MoveIgnoreActors.Add(Character);
 

@@ -192,23 +192,26 @@ protected:
 
 	virtual void UpdateRecoil(float DeltaSeconds);
 
-	FVector RecoilOffset;
+	float MaxRecoilPitchOffset; 
 
-	UPROPERTY(EditAnywhere, Category = Recoil)
-	float MaxVerticalRecoilOffsetPerShot;
+	//Recoil that is yet to 
+	FRotator RecoilRotationOffset; 
 
+	//Rotator of the offset of camera rotation caused by weapon's recoil - used for recoil recovery.
+	FRotator RecoilRecoveryOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxRecoilPitchOffsetPerShot;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxRecoilYawOffsetPerShot;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float RecoilSpeed;
-
-	UPROPERTY(EditAnywhere, Category = Recoil)
-	float MaxRecoilSpeed;
-
-	float RecoilAcceleration;
-
-	UPROPERTY(EditAnywhere, Category = Recoil)
-	float RecoilForce;
-
-	UPROPERTY(EditAnywhere, Category = Recoil)
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float RecoilRecoverySpeed;
 
-	//first shot recoil.
+	UPROPERTY(VisibleAnywhere)
+	FRotator LastFrameRotation;
 };

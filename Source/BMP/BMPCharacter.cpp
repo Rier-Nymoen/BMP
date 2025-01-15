@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "BMPCharacter.h"
+#include "BMPCharacterMovementComponent.h"
+
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -57,6 +59,8 @@ ABMPCharacter::ABMPCharacter()
 
 	LastDamageTakenInfo.bIsDead = false;
 	LastDamageTakenInfo.DamageInstigator = nullptr;
+
+	BMPCharacterMovement = Cast<UBMPCharacterMovementComponent>(GetCharacterMovement());
 }
 
 void ABMPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -99,6 +103,11 @@ void ABMPCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInput
 
 		//Interact
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ABMPCharacter::Interact);
+
+		//Crouch
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ABMPCharacter::StartCrouch);
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &ABMPCharacter::EndCrouch);
+
 	}
 }
 
@@ -229,6 +238,42 @@ void ABMPCharacter::Interact()
 	{
 		NearestInteractable->Interact(this);
 	}
+}
+
+void ABMPCharacter::StartCrouch(const FInputActionValue& Value)
+{
+	//There is crouching functionality within the character and cmc for different usages.
+	//Telling a character to crouch should be easily done via reference of the character as well as querying it
+	//Things like wanting to do an action arent relevant in a situation like that. Thats more internal to the CMC.
+	if (GetBMPCharacterMovement())
+	{
+		if (CanSlide()) //Maybe I dont decide here, and decide inside the character movement component. This is exploitable
+		{
+			GetBMPCharacterMovement()->bWantsToSlide = true;
+		}
+		else
+		{
+			Crouch();
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Null Custom movement Component"));
+	}
+}
+
+void ABMPCharacter::EndCrouch(const FInputActionValue& Value)
+{
+	if (GetBMPCharacterMovement())
+	{
+		GetBMPCharacterMovement()->bWantsToSlide = false;
+	}
+	UnCrouch();
+}
+
+bool ABMPCharacter::CanSlide() const
+{	//Forward Velocity Calculation  to see if speed passes threshold.
+	return !bIsSliding && BMPCharacterMovement && FVector::DotProduct(GetVelocity(), GetActorForwardVector()) > BMPCharacterMovement->ForwardVelocityNeededToSlide; //add simulating physics check later (want to see without).
 }
 
 void ABMPCharacter::EquipWeapon(ABMPWeapon* NewWeapon)
