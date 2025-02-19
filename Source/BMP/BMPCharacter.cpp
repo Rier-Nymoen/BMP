@@ -92,7 +92,7 @@ void ABMPCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInput
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		//Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ABMPCharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		//Moving
@@ -245,35 +245,30 @@ void ABMPCharacter::StartCrouch(const FInputActionValue& Value)
 	//There is crouching functionality within the character and cmc for different usages.
 	//Telling a character to crouch should be easily done via reference of the character as well as querying it
 	//Things like wanting to do an action arent relevant in a situation like that. Thats more internal to the CMC.
+
 	if (GetBMPCharacterMovement())
 	{
-		if (CanSlide()) //Maybe I dont decide here, and decide inside the character movement component. This is exploitable
-		{
-			GetBMPCharacterMovement()->bWantsToSlide = true;
-		}
-		else
-		{
-			Crouch();
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Null Custom movement Component"));
+		Crouch();
 	}
 }
 
 void ABMPCharacter::EndCrouch(const FInputActionValue& Value)
 {
-	if (GetBMPCharacterMovement())
-	{
-		GetBMPCharacterMovement()->bWantsToSlide = false;
-	}
 	UnCrouch();
+}
+
+void ABMPCharacter::Jump()
+{
+	if (bIsCrouched || bIsSliding)
+	{
+		UnCrouch();
+	}
+	Super::Jump();
 }
 
 bool ABMPCharacter::CanSlide() const
 {	//Forward Velocity Calculation  to see if speed passes threshold.
-	return !bIsSliding && BMPCharacterMovement && FVector::DotProduct(GetVelocity(), GetActorForwardVector()) > BMPCharacterMovement->ForwardVelocityNeededToSlide; //add simulating physics check later (want to see without).
+	return !bIsSliding && BMPCharacterMovement; //add simulating physics check later (want to see without).
 }
 
 void ABMPCharacter::EquipWeapon(ABMPWeapon* NewWeapon)

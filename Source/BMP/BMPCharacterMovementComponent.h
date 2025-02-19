@@ -27,17 +27,33 @@ protected:
 	virtual void InitializeComponent() override;
 	UPROPERTY()//todo understand transient
 	ABMPCharacter* BMPCharacterOwner;
+
 public:
 	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite)
 	bool bCanSlide;
 
 	bool bWantsToSlide;
 	
-
 	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0", ForceUnits = "cm/s"))
 	float ForwardVelocityNeededToSlide;
 
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0", ForceUnits = "cm/s"))
+	float VelocityNeededToSlide;
+
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0", ForceUnits = ""))
+	float SlideImpulse;
+
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0", ForceUnits = ""))
+	float SlideFriction;
+
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+	float BrakingDecelerationSliding;
+
 	ABMPCharacter* GetBMPCharacterOwner() const { return BMPCharacterOwner; }
+
+	virtual float GetMaxBrakingDeceleration() const override;
+	virtual float GetCustomMaxBrakingDeceleration() const;
+
 protected:
 	//virtual void ControlledCharacterMove(const FVector& InputVector, float DeltaSeconds) override;
 
@@ -47,9 +63,13 @@ protected:
 	
 	virtual void PerformMovement(float DeltaTime) override;
 
+	virtual void PhysCustom(float deltaTime, int32 Iterations) override;
+
 	virtual void PhysSliding(float deltaTime, int32 Iterations);
 
 	virtual bool IsSliding() const;
+
+	virtual bool HasEnoughVelocityToEnterSlide() const;
 
 	virtual bool CanSlideInCurrentState() const;
 
@@ -57,6 +77,7 @@ protected:
 
 	virtual void EndSlide();
 
+	float GetForwardVelocity() const;
 
-
+	virtual bool CanCrouchInCurrentState() const override;
 };

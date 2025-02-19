@@ -67,6 +67,9 @@ protected:
 
 	void EndCrouch(const FInputActionValue& Value);
 
+	virtual void Jump() override;
+
+
 public:
 	UPROPERTY(BlueprintReadOnly)
 	bool bIsSliding;
