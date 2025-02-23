@@ -58,7 +58,7 @@ void UBMPCharacterMovementComponent::UpdateCharacterStateBeforeMovement(float De
 	{
 		EndSlide();
 	}
-	Super::UpdateCharacterStateBeforeMovement(DeltaSeconds);
+	//Super::UpdateCharacterStateBeforeMovement(DeltaSeconds);
 }
 
 //probably misunderstanding how to use this function.
@@ -98,7 +98,6 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 	{
 		return;
 	}
-	//These vectors are incorrect for some reason.
 	
 	if (!GetCharacterOwner())
 	{
@@ -106,38 +105,37 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 		return;
 	}
 
-	Iterations++;
-
 	FVector OldVelocity = Velocity;
-	//UE_LOG(LogTemp, Warning, TEXT("Acceleration: %s"), *Acceleration.ToString());
-	//UE_LOG(LogTemp, Warning, TEXT("OldVelocity: %s"), *OldVelocity.ToString());
 
 	CalcVelocity(deltaTime, SlideFriction, true, GetMaxBrakingDeceleration());
+	FFindFloorResult OldFloor = CurrentFloor;
+	Velocity += GetGravityZ() * FVector::DownVector * deltaTime;
+
 	
-	FFindFloorResult StartFloor;
-
-	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), StartFloor, false, nullptr); //pass  in our own??
-
+	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), CurrentFloor, false, nullptr);
+	
 	const FVector Delta = Velocity * deltaTime;
-	FVector GroundDelta = ComputeGroundMovementDelta(Delta,StartFloor.HitResult /*SurfaceHitResult*/, true);
+	FVector GroundDelta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult /*SurfaceHitResult*/, CurrentFloor.bLineTrace);
+	//UE_LOG(LogTemp, Warning, TEXT("Delta: %s"), *Delta.ToString())
+	//UE_LOG(LogTemp, Warning, TEXT("Ground Delta: %s"), *GroundDelta.ToString())
+	//UE_LOG(LogTemp, Warning, TEXT("CurrentFloor.bLineTrace: %s"), CurrentFloor.bLineTrace ? TEXT("True") : TEXT("False"))
+
+
 	FHitResult Hit(1.f);
-	SafeMoveUpdatedComponent(Delta, UpdatedComponent->GetComponentQuat(), true, Hit);
+	SafeMoveUpdatedComponent(GroundDelta, UpdatedComponent->GetComponentQuat(), true, Hit);
+	FVector StartTrace = GetCharacterOwner()->GetCapsuleComponent()->GetComponentLocation();
+	FVector EndTrace = StartTrace + GroundDelta * 55;
+	//DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Red, true);
 
-
-	HandleImpact(Hit, deltaTime, Delta);
-	//maybe compute slide vector... and then plug that ramp delta into there?
-	FVector RampDelta = ComputeSlideVector(Delta, 1.f, StartFloor.HitResult.Normal, StartFloor.HitResult);
+	HandleImpact(Hit, deltaTime, GroundDelta);
+	FVector RampDelta = ComputeSlideVector(GroundDelta, 1.f, CurrentFloor.HitResult.Normal, CurrentFloor.HitResult);
 	SlideAlongSurface(RampDelta, (1.f - Hit.Time), Hit.Normal, Hit, true);
-	//DrawDebugLine(GetWorld(), StartFloor.HitResult.ImpactPoint, StartFloor.HitResult.ImpactPoint + RampDelta * 100.f, FColor::Cyan, true);
 
-	//Find if there is a ground beneath us (otherwise we're falling).
-	//@TODO: If fluids, figure that out.
-	FFindFloorResult Floor;
-	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), Floor, false, nullptr);
-	//
-	if (!Floor.IsWalkableFloor())
+	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), CurrentFloor, false, nullptr);
+
+	if (!CurrentFloor.IsWalkableFloor())
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("No Floor Found"))
+		UE_LOG(LogTemp, Warning, TEXT("CurrentFloor Is Not Walkable."))
 		EndSlide();
 		SetMovementMode(MOVE_Falling);
 		return;
