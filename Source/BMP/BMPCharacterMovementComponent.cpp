@@ -58,10 +58,9 @@ void UBMPCharacterMovementComponent::UpdateCharacterStateBeforeMovement(float De
 	{
 		EndSlide();
 	}
-	//Super::UpdateCharacterStateBeforeMovement(DeltaSeconds);
+	Super::UpdateCharacterStateBeforeMovement(DeltaSeconds);
 }
 
-//probably misunderstanding how to use this function.
 void UBMPCharacterMovementComponent::UpdateCharacterStateAfterMovement(float DeltaSeconds)
 {
 	Super::UpdateCharacterStateAfterMovement(DeltaSeconds);
@@ -106,26 +105,21 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 	}
 
 	FVector OldVelocity = Velocity;
+	MaintainHorizontalGroundVelocity();
 
 	CalcVelocity(deltaTime, SlideFriction, true, GetMaxBrakingDeceleration());
 	FFindFloorResult OldFloor = CurrentFloor;
-	Velocity += GetGravityZ() * FVector::DownVector * deltaTime;
 
-	
 	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), CurrentFloor, false, nullptr);
-	
-	const FVector Delta = Velocity * deltaTime;
-	FVector GroundDelta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult /*SurfaceHitResult*/, CurrentFloor.bLineTrace);
-	//UE_LOG(LogTemp, Warning, TEXT("Delta: %s"), *Delta.ToString())
-	//UE_LOG(LogTemp, Warning, TEXT("Ground Delta: %s"), *GroundDelta.ToString())
-	//UE_LOG(LogTemp, Warning, TEXT("CurrentFloor.bLineTrace: %s"), CurrentFloor.bLineTrace ? TEXT("True") : TEXT("False"))
 
+	const FVector Delta = Velocity * deltaTime;
+	FVector GroundDelta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult , CurrentFloor.bLineTrace);
 
 	FHitResult Hit(1.f);
 	SafeMoveUpdatedComponent(GroundDelta, UpdatedComponent->GetComponentQuat(), true, Hit);
 	FVector StartTrace = GetCharacterOwner()->GetCapsuleComponent()->GetComponentLocation();
 	FVector EndTrace = StartTrace + GroundDelta * 55;
-	//DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Red, true);
+	DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Red, true);
 
 	HandleImpact(Hit, deltaTime, GroundDelta);
 	FVector RampDelta = ComputeSlideVector(GroundDelta, 1.f, CurrentFloor.HitResult.Normal, CurrentFloor.HitResult);
@@ -135,10 +129,15 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 
 	if (!CurrentFloor.IsWalkableFloor())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("CurrentFloor Is Not Walkable."))
+		//UE_LOG(LogTemp, Warning, TEXT("CurrentFloor Is Not Walkable."))
 		EndSlide();
 		SetMovementMode(MOVE_Falling);
 		return;
+	}
+
+	if (IsMovingOnGround())
+	{
+		MaintainHorizontalGroundVelocity();
 	}
 }
 
