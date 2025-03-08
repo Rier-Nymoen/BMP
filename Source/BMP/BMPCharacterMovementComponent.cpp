@@ -11,6 +11,10 @@ UBMPCharacterMovementComponent::UBMPCharacterMovementComponent()
 	VelocityNeededToSlide = 100.f;
 	bCanSlide = true;
 	bWantsToSlide = false;
+	MaxSlidingSpeed = MaxWalkSpeed;
+	BrakingDecelerationSliding = 100.f;
+	SlideFriction = 0.1f;
+	SlideGravityCoefficient = 1.f;
 }
 
 void UBMPCharacterMovementComponent::InitializeComponent()
@@ -50,7 +54,7 @@ float UBMPCharacterMovementComponent::GetCustomMaxBrakingDeceleration() const
 void UBMPCharacterMovementComponent::UpdateCharacterStateBeforeMovement(float DeltaSeconds)
 {
 	const bool bIsSliding = IsSliding();
-	if (!bIsSliding && bWantsToCrouch && CanSlideInCurrentState() && HasEnoughVelocityToEnterSlide()) //Eventually make a "can slide in current state". Based on crouching.
+	if (!bIsSliding && bWantsToCrouch && CanSlideInCurrentState() /*&& HasEnoughVelocityToEnterSlide()*/) 
 	{
 		Slide();
 	}
@@ -104,41 +108,62 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 		return;
 	}
 
-	FVector OldVelocity = Velocity;
-	MaintainHorizontalGroundVelocity();
-
-	CalcVelocity(deltaTime, SlideFriction, true, GetMaxBrakingDeceleration());
 	FFindFloorResult OldFloor = CurrentFloor;
+	UCapsuleComponent* CapsuleComponent = GetCharacterOwner()->GetCapsuleComponent();
+	FindFloor(CapsuleComponent->GetComponentLocation(), CurrentFloor, false, nullptr);
 
-	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), CurrentFloor, false, nullptr);
+	FVector OldVelocity = Velocity;
+	//MaintainHorizontalGroundVelocity();
+
+	FVector GravityProjection = FVector::VectorPlaneProject(FVector::UpVector, CurrentFloor.HitResult.ImpactNormal);
+	
+	FVector GravityForce = GravityProjection * GetGravityZ() * SlideGravityCoefficient;
+	GravityForce.Z = 0.f;
+	Velocity += GravityForce * deltaTime;
+	
+	float DotProduct = FMath::Abs(Acceleration.GetSafeNormal() | CapsuleComponent->GetRightVector());
+	if (DotProduct > SlideStrafeControl)
+	{
+		Acceleration *= DotProduct;
+		UE_LOG(LogTemp, Warning, TEXT("GravityForce: %f"), GravityForce.Length())
+	}
+	else
+	{
+		Acceleration = FVector::ZeroVector;
+	}
+
+	HelperDrawVectorFromPlayer(Acceleration, Acceleration.Length(), FColor::Red, false, deltaTime + 0.1);
+	HelperDrawVectorFromPlayer(GravityForce, GravityForce.Length(), FColor::Green, false, deltaTime + 0.1, CapsuleComponent->GetRightVector() * 50);
+
+	//UE_LOG(LogTemp, Warning, TEXT("Acceleration: %s"), *Acceleration.ToString())
+	CalcVelocity(deltaTime, SlideFriction, true, GetMaxBrakingDeceleration());
+
+
+	//UE_LOG(LogTemp, Warning, TEXT("Velocity: %s"), *Velocity.ToString())
+	GEngine->AddOnScreenDebugMessage(INDEX_NONE, deltaTime + 0.05f, FColor::Cyan, FString::Printf(TEXT("Velocity: %s"), *Velocity.ToString()), true);
 
 	const FVector Delta = Velocity * deltaTime;
 	FVector GroundDelta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult , CurrentFloor.bLineTrace);
 
 	FHitResult Hit(1.f);
 	SafeMoveUpdatedComponent(GroundDelta, UpdatedComponent->GetComponentQuat(), true, Hit);
-	FVector StartTrace = GetCharacterOwner()->GetCapsuleComponent()->GetComponentLocation();
-	FVector EndTrace = StartTrace + GroundDelta * 55;
-	DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Red, true);
-
 	HandleImpact(Hit, deltaTime, GroundDelta);
 	FVector RampDelta = ComputeSlideVector(GroundDelta, 1.f, CurrentFloor.HitResult.Normal, CurrentFloor.HitResult);
 	SlideAlongSurface(RampDelta, (1.f - Hit.Time), Hit.Normal, Hit, true);
 
-	FindFloor(BMPCharacterOwner->GetCapsuleComponent()->GetComponentLocation(), CurrentFloor, false, nullptr);
+	FindFloor(CapsuleComponent->GetComponentLocation(), CurrentFloor, false, nullptr);
 
 	if (!CurrentFloor.IsWalkableFloor())
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("CurrentFloor Is Not Walkable."))
 		EndSlide();
 		SetMovementMode(MOVE_Falling);
 		return;
 	}
-
-	if (IsMovingOnGround())
-	{
-		MaintainHorizontalGroundVelocity();
-	}
+	
+	//if (IsMovingOnGround())
+	//{
+	//	MaintainHorizontalGroundVelocity();
+	//}
 }
 
 bool UBMPCharacterMovementComponent::IsSliding() const
@@ -157,11 +182,13 @@ bool UBMPCharacterMovementComponent::CanSlideInCurrentState() const //
 	{
 		return false;
 	}
-	return ((!IsFalling() || IsMovingOnGround()) && Velocity.Length() > 0.f); //Add simulating physics checks.
+	return ((!IsFalling() || IsMovingOnGround()) /*&& Velocity.SquaredLength() > 0.f*/); //Add simulating physics checks.
 }
 
 void UBMPCharacterMovementComponent::Slide() 
 {
+	UE_LOG(LogTemp, Warning, TEXT("EnterSlide"))
+
 	if (!HasValidData()) //
 	{ 
 		return;
@@ -170,8 +197,16 @@ void UBMPCharacterMovementComponent::Slide()
 	{
 		return;
 	}
+
+	if (!WasFalling())
+	{
+		Velocity += Velocity.GetSafeNormal2D() * SlideImpulse;
+	}
+	
 	BMPCharacterOwner->bIsSliding = true;
 	SetMovementMode(EMovementMode::MOVE_Custom, EBMPMovementMode::BMPMove_Sliding);
+
+
 }
 
 void UBMPCharacterMovementComponent::EndSlide()
@@ -184,6 +219,7 @@ void UBMPCharacterMovementComponent::EndSlide()
 	{
 		return;
 	}
+
 	UE_LOG(LogTemp, Warning, TEXT("EndSlide"))
 	BMPCharacterOwner->bIsSliding = false;
 	SetMovementMode(EMovementMode::MOVE_Walking);
@@ -198,6 +234,11 @@ float UBMPCharacterMovementComponent::GetForwardVelocity() const
 	return 0.0f;
 }
 
+bool UBMPCharacterMovementComponent::WasFalling()
+{
+	return PrevMovementMode == EMovementMode::MOVE_Falling;
+}
+
 bool UBMPCharacterMovementComponent::CanCrouchInCurrentState() const
 {
 	if (!CanEverCrouch())
@@ -205,5 +246,60 @@ bool UBMPCharacterMovementComponent::CanCrouchInCurrentState() const
 		return false;
 	}
 	return (IsFalling() || IsMovingOnGround()) && UpdatedComponent && !UpdatedComponent->IsSimulatingPhysics() && !IsSliding();
+}
+
+float UBMPCharacterMovementComponent::GetMaxSpeed() const
+{
+	switch (MovementMode)
+	{
+	case MOVE_Walking:
+	case MOVE_NavWalking:
+		return IsCrouching() ? MaxWalkSpeedCrouched : MaxWalkSpeed;
+	case MOVE_Falling:
+		return MaxWalkSpeed;
+	case MOVE_Swimming:
+		return MaxSwimSpeed;
+	case MOVE_Flying:
+		return MaxFlySpeed;
+	case MOVE_Custom:
+		return GetCustomMaxSpeed();
+	case MOVE_None:
+	default:
+		return 0.f;
+	}
+}
+
+float UBMPCharacterMovementComponent::GetCustomMaxSpeed() const
+{
+	switch (CustomMovementMode)
+	{
+	case EBMPMovementMode::BMPMove_None:
+		return 0.f;
+		break;
+	case EBMPMovementMode::BMPMove_Sliding:
+		return MaxSlidingSpeed;
+		break;
+	default:
+		return 0.f;
+		break;
+	}
+}
+
+void UBMPCharacterMovementComponent::HelperDrawVectorFromPlayer(FVector Vector, float Length, FColor Color, bool bPersistent, float LifeTime, FVector Offset) const
+{
+	FVector StartTrace = CharacterOwner->GetCapsuleComponent()->GetComponentLocation() + Offset;
+	FVector EndTrace = StartTrace + (Vector * Length);
+	DrawDebugLine(GetWorld(), StartTrace, EndTrace, Color, bPersistent, LifeTime);
+	return;
+}
+
+void UBMPCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
+	PrevMovementMode = PreviousMovementMode;
+	PrevBMPMovementMode = (EBMPMovementMode)PreviousCustomMode;
+	UE_LOG(LogTemp, Warning, TEXT("PrevMovementMode: %d"), PrevMovementMode);
+
+	UE_LOG(LogTemp, Warning, TEXT("PrevBMPMovementNode: %d"), PrevBMPMovementMode);
 }
 

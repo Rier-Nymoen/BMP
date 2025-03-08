@@ -9,7 +9,7 @@
 class ABMPCharacter;
 
 UENUM()
-enum EBMPMovementMode : int
+enum EBMPMovementMode : uint8
 {
 	BMPMove_None,
 	BMPMove_Sliding
@@ -33,6 +33,7 @@ public:
 	bool bCanSlide;
 
 	bool bWantsToSlide;
+protected:
 	
 	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0", ForceUnits = "cm/s"))
 	float ForwardVelocityNeededToSlide;
@@ -49,10 +50,32 @@ public:
 	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float BrakingDecelerationSliding;
 
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+	float MaxSlidingSpeed;
+
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+	float SlideStrafeControl;
+
+	UPROPERTY(Category = "Character Movement: Sliding", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+	float SlideGravityCoefficient;
+
+public:
+
 	ABMPCharacter* GetBMPCharacterOwner() const { return BMPCharacterOwner; }
 
 	virtual float GetMaxBrakingDeceleration() const override;
 	virtual float GetCustomMaxBrakingDeceleration() const;
+
+	virtual float GetMaxSpeed() const override;
+	virtual float GetCustomMaxSpeed() const;
+
+	virtual bool IsSliding() const;
+
+	float GetForwardVelocity() const;
+
+	//Last Update if was falling.
+	bool WasFalling();
+
 
 protected:
 	//virtual void ControlledCharacterMove(const FVector& InputVector, float DeltaSeconds) override;
@@ -67,8 +90,6 @@ protected:
 
 	virtual void PhysSliding(float deltaTime, int32 Iterations);
 
-	virtual bool IsSliding() const;
-
 	virtual bool HasEnoughVelocityToEnterSlide() const;
 
 	virtual bool CanSlideInCurrentState() const;
@@ -77,7 +98,14 @@ protected:
 
 	virtual void EndSlide();
 
-	float GetForwardVelocity() const;
-
 	virtual bool CanCrouchInCurrentState() const override;
+protected:
+
+	void HelperDrawVectorFromPlayer(FVector Vector, float Length, FColor Color, bool bPersistent, float LifeTime = (-1.0f), FVector Offset = FVector::ZeroVector) const;
+
+	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override; 
+
+	EMovementMode PrevMovementMode;
+
+	EBMPMovementMode PrevBMPMovementMode;
 };
