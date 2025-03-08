@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "BMPCharacter.h"
+#include "BMPCharacterMovementComponent.h"
+
 #include "Animation/AnimInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -39,10 +41,9 @@ ABMPCharacter::ABMPCharacter()
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
 	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh1P"));
 	Mesh1P->SetOnlyOwnerSee(true);
-	Mesh1P->SetupAttachment(FirstPersonCameraComponent);
+	Mesh1P->SetupAttachment(GetFirstPersonCameraComponent());
 	Mesh1P->bCastDynamicShadow = false;
 	Mesh1P->CastShadow = false;
-	//Mesh1P->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
 	Mesh1P->SetRelativeLocation(FVector(-30.f, 0.f, -150.f));
 	bReplicates = true;
 
@@ -58,6 +59,8 @@ ABMPCharacter::ABMPCharacter()
 
 	LastDamageTakenInfo.bIsDead = false;
 	LastDamageTakenInfo.DamageInstigator = nullptr;
+
+	BMPCharacterMovement = Cast<UBMPCharacterMovementComponent>(GetCharacterMovement());
 }
 
 void ABMPCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -89,7 +92,7 @@ void ABMPCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInput
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		//Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ABMPCharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		//Moving
@@ -100,6 +103,11 @@ void ABMPCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInput
 
 		//Interact
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ABMPCharacter::Interact);
+
+		//Crouch
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Started, this, &ABMPCharacter::StartCrouch);
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &ABMPCharacter::EndCrouch);
+
 	}
 }
 
@@ -133,9 +141,6 @@ void ABMPCharacter::HandleHealthChanged(const FOnAttributeChangeData& Data)
 		if(Data.NewValue <= 0.0f && !LastDamageTakenInfo.bIsDead)
 		{
 			Die(DamageInstigator);
-		}
-		else
-		{
 		}
 	}
 }
@@ -208,6 +213,7 @@ void ABMPCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+//very quick interaction system to test weapon functionality
 void ABMPCharacter::Interact()
 {
 	float MinDistanceSquared = TNumericLimits<float>::Max();
@@ -232,6 +238,37 @@ void ABMPCharacter::Interact()
 	{
 		NearestInteractable->Interact(this);
 	}
+}
+
+void ABMPCharacter::StartCrouch(const FInputActionValue& Value)
+{
+	//There is crouching functionality within the character and cmc for different usages.
+	//Telling a character to crouch should be easily done via reference of the character as well as querying it
+	//Things like wanting to do an action arent relevant in a situation like that. Thats more internal to the CMC.
+
+	if (GetBMPCharacterMovement())
+	{
+		Crouch();
+	}
+}
+
+void ABMPCharacter::EndCrouch(const FInputActionValue& Value)
+{
+	UnCrouch();
+}
+
+void ABMPCharacter::Jump()
+{
+	if (bIsCrouched || bIsSliding)
+	{
+		UnCrouch();
+	}
+	Super::Jump();
+}
+
+bool ABMPCharacter::CanSlide() const
+{	//Forward Velocity Calculation  to see if speed passes threshold.
+	return !bIsSliding && BMPCharacterMovement; //add simulating physics check later (want to see without).
 }
 
 void ABMPCharacter::EquipWeapon(ABMPWeapon* NewWeapon)

@@ -11,12 +11,19 @@ void UBMPWeaponStateFiring::EnterState()
 		check(OwningWeapon->IsReadyToFire())
 		OwningWeapon->Fire();
 		GetWorld()->GetTimerManager().SetTimer(TimerHandle_CheckRefire, this, &UBMPWeaponStateFiring::CheckRefireTimer,   OwningWeapon->GetFireRateSeconds(), true);
+		OwningWeapon->bIsFiring = true;
 	}
 }
 
 void UBMPWeaponStateFiring::ExitState()
 {
 	GetWorld()->GetTimerManager().ClearTimer(TimerHandle_CheckRefire);
+
+	if (ABMPWeapon* OwningWeapon = GetOwningWeapon())
+	{
+		OwningWeapon->bIsFiring = false;
+	}
+
 }
 
 void UBMPWeaponStateFiring::HandleReloadInput()

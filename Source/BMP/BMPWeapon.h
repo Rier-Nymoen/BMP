@@ -23,7 +23,7 @@ public:
 	ABMPWeapon();
 
 	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	virtual void Tick(float DeltaSeconds) override;
 
 	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -67,6 +67,9 @@ protected:
 	virtual void PlayFiringEffects();
 
 	virtual void FireHitscan();
+
+	UFUNCTION(Server, Reliable)
+	virtual void ServerProcessHit(const FHitResult& HitResult);
 
 	virtual void FireProjectile();
 
@@ -145,6 +148,7 @@ protected:
 public:
 
 	int32 GetCurrentAmmo() const { return CurrentAmmo; }
+
 	int32 GetCurrentAmmoReserves() const { return CurrentAmmoReserves; }
 
 	bool HasAmmoInMagazine() const  { return CurrentAmmo > 0; }
@@ -176,13 +180,38 @@ protected:
 	UFUNCTION(Server, Reliable)
 	virtual void ServerReloadWeapon();
 
-	UFUNCTION(Server, Reliable)
-	virtual void ServerProcessHit(const FHitResult& HitResult);
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	class USoundCue* FireSoundCue;
 
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite	)
+	bool bIsFiring;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<class UGameplayEffect> DamageEffect;
+
+	virtual void ApplyRecoil();
+
+	virtual void UpdateRecoil(float DeltaSeconds);
+
+	float MaxRecoilPitchOffset; 
+
+	//Recoil that is yet to 
+	FRotator RecoilRotationOffset; 
+
+	//Rotator of the offset of camera rotation caused by weapon's recoil - used for recoil recovery.
+	FRotator RecoilRecoveryOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxRecoilPitchOffsetPerShot;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MaxRecoilYawOffsetPerShot;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float RecoilSpeed;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float RecoilRecoverySpeed;
+
+	UPROPERTY(VisibleAnywhere)
+	FRotator LastFrameRotation;
 };

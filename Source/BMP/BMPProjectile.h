@@ -22,6 +22,9 @@ class ABMPProjectile : public AActor
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
 	UProjectileMovementComponent* ProjectileMovement;
 
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* MeshComponent;
+
 public:
 	ABMPProjectile();
 
