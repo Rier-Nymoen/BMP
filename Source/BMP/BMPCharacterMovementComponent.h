@@ -23,6 +23,7 @@ class BMP_API UBMPCharacterMovementComponent : public UCharacterMovementComponen
 	GENERATED_BODY()
 public:
 	UBMPCharacterMovementComponent();
+
 protected:
 	virtual void InitializeComponent() override;
 	UPROPERTY()//todo understand transient
@@ -75,6 +76,8 @@ public:
 
 	//Last Update if was falling.
 	bool WasFalling();
+
+	virtual bool IsMovingOnGround() const override;
 
 
 protected:

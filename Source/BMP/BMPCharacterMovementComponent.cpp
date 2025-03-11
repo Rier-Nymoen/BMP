@@ -205,8 +205,6 @@ void UBMPCharacterMovementComponent::Slide()
 	
 	BMPCharacterOwner->bIsSliding = true;
 	SetMovementMode(EMovementMode::MOVE_Custom, EBMPMovementMode::BMPMove_Sliding);
-
-
 }
 
 void UBMPCharacterMovementComponent::EndSlide()
@@ -237,6 +235,11 @@ float UBMPCharacterMovementComponent::GetForwardVelocity() const
 bool UBMPCharacterMovementComponent::WasFalling()
 {
 	return PrevMovementMode == EMovementMode::MOVE_Falling;
+}
+
+bool UBMPCharacterMovementComponent::IsMovingOnGround() const
+{
+	return ((MovementMode == MOVE_Walking) || (MovementMode == MOVE_NavWalking) || (CustomMovementMode == BMPMove_Sliding)) && UpdatedComponent;
 }
 
 bool UBMPCharacterMovementComponent::CanCrouchInCurrentState() const

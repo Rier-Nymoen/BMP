@@ -242,10 +242,6 @@ void ABMPCharacter::Interact()
 
 void ABMPCharacter::StartCrouch(const FInputActionValue& Value)
 {
-	//There is crouching functionality within the character and cmc for different usages.
-	//Telling a character to crouch should be easily done via reference of the character as well as querying it
-	//Things like wanting to do an action arent relevant in a situation like that. Thats more internal to the CMC.
-
 	if (GetBMPCharacterMovement())
 	{
 		Crouch();
@@ -264,6 +260,26 @@ void ABMPCharacter::Jump()
 		UnCrouch();
 	}
 	Super::Jump();
+}
+
+void ABMPCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		UEnhancedPlayerInput* EnhancedPlayerInput = Cast<UEnhancedPlayerInput>(PlayerController->PlayerInput);
+		if (EnhancedPlayerInput)
+		{
+			const FInputActionValue Value = EnhancedPlayerInput->GetActionValue(CrouchAction);
+			const bool bValue = Value.Get<bool>();
+			UE_LOG(LogTemp, Warning, TEXT("Landed InputActionValue: %s"), bValue ? TEXT("True") : TEXT("False"));
+			if (bValue)
+			{
+				Crouch();
+			}
+		}
+	}
 }
 
 bool ABMPCharacter::CanSlide() const
