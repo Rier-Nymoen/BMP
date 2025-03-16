@@ -125,22 +125,22 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 	if (DotProduct > SlideStrafeControl)
 	{
 		Acceleration *= DotProduct;
-		UE_LOG(LogTemp, Warning, TEXT("GravityForce: %f"), GravityForce.Length())
+		//UE_LOG(LogTemp, Warning, TEXT("GravityForce: %f"), GravityForce.Length())
 	}
 	else
 	{
 		Acceleration = FVector::ZeroVector;
 	}
 
-	HelperDrawVectorFromPlayer(Acceleration, Acceleration.Length(), FColor::Red, false, deltaTime + 0.1);
-	HelperDrawVectorFromPlayer(GravityForce, GravityForce.Length(), FColor::Green, false, deltaTime + 0.1, CapsuleComponent->GetRightVector() * 50);
+	/*HelperDrawVectorFromPlayer(Acceleration, Acceleration.Length(), FColor::Red, false, deltaTime + 0.1);
+	HelperDrawVectorFromPlayer(GravityForce, GravityForce.Length(), FColor::Green, false, deltaTime + 0.1, CapsuleComponent->GetRightVector() * 50);*/
 
 	//UE_LOG(LogTemp, Warning, TEXT("Acceleration: %s"), *Acceleration.ToString())
 	CalcVelocity(deltaTime, SlideFriction, true, GetMaxBrakingDeceleration());
 
 
 	//UE_LOG(LogTemp, Warning, TEXT("Velocity: %s"), *Velocity.ToString())
-	GEngine->AddOnScreenDebugMessage(INDEX_NONE, deltaTime + 0.05f, FColor::Cyan, FString::Printf(TEXT("Velocity: %s"), *Velocity.ToString()), true);
+	//GEngine->AddOnScreenDebugMessage(INDEX_NONE, deltaTime + 0.05f, FColor::Cyan, FString::Printf(TEXT("Velocity: %s"), *Velocity.ToString()), true);
 
 	const FVector Delta = Velocity * deltaTime;
 	FVector GroundDelta = ComputeGroundMovementDelta(Delta, CurrentFloor.HitResult , CurrentFloor.bLineTrace);

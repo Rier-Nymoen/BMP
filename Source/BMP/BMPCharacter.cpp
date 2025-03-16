@@ -283,7 +283,7 @@ void ABMPCharacter::Landed(const FHitResult& Hit)
 }
 
 bool ABMPCharacter::CanSlide() const
-{	//Forward Velocity Calculation  to see if speed passes threshold.
+{
 	return !bIsSliding && BMPCharacterMovement; //add simulating physics check later (want to see without).
 }
 
