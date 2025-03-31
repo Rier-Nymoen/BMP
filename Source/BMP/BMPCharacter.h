@@ -69,6 +69,7 @@ protected:
 
 	virtual void Jump() override;
 
+	virtual void Landed(const FHitResult& Hit) override;
 
 public:
 	UPROPERTY(BlueprintReadOnly)
