@@ -24,6 +24,9 @@ class BMP_API UBMPCharacterMovementComponent : public UCharacterMovementComponen
 public:
 	UBMPCharacterMovementComponent();
 
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+
 protected:
 	virtual void InitializeComponent() override;
 	UPROPERTY()//todo understand transient

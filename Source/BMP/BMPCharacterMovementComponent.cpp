@@ -17,6 +17,12 @@ UBMPCharacterMovementComponent::UBMPCharacterMovementComponent()
 	SlideGravityCoefficient = 1.f;
 }
 
+void UBMPCharacterMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	UE_LOG(LogTemp, Warning, TEXT("Tick MoveSpeed: %f"), Velocity.Length())
+}
+
 void UBMPCharacterMovementComponent::InitializeComponent()
 {
 	BMPCharacterOwner = Cast<ABMPCharacter>(GetOwner());
@@ -115,9 +121,10 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 	FVector OldVelocity = Velocity;
 	//MaintainHorizontalGroundVelocity();
 
-	FVector GravityProjection = FVector::VectorPlaneProject(FVector::UpVector, CurrentFloor.HitResult.ImpactNormal);
-	
+	FVector GravityProjection = FVector::VectorPlaneProject(FVector::UpVector, CurrentFloor.HitResult.ImpactNormal); //may need dot product involved for keeping momentum.
+
 	FVector GravityForce = GravityProjection * GetGravityZ() * SlideGravityCoefficient;
+	
 	GravityForce.Z = 0.f;
 	Velocity += GravityForce * deltaTime;
 	
@@ -132,12 +139,11 @@ void UBMPCharacterMovementComponent::PhysSliding(float deltaTime, int32 Iteratio
 		Acceleration = FVector::ZeroVector;
 	}
 
-	/*HelperDrawVectorFromPlayer(Acceleration, Acceleration.Length(), FColor::Red, false, deltaTime + 0.1);
-	HelperDrawVectorFromPlayer(GravityForce, GravityForce.Length(), FColor::Green, false, deltaTime + 0.1, CapsuleComponent->GetRightVector() * 50);*/
+	//HelperDrawVectorFromPlayer(Acceleration, Acceleration.Length(), FColor::Red, false, deltaTime + 0.1);
+	HelperDrawVectorFromPlayer(GravityForce, GravityForce.Length(), FColor::Green, false, deltaTime + 0.1, FVector::ZeroVector);
 
 	//UE_LOG(LogTemp, Warning, TEXT("Acceleration: %s"), *Acceleration.ToString())
 	CalcVelocity(deltaTime, SlideFriction, true, GetMaxBrakingDeceleration());
-
 
 	//UE_LOG(LogTemp, Warning, TEXT("Velocity: %s"), *Velocity.ToString())
 	//GEngine->AddOnScreenDebugMessage(INDEX_NONE, deltaTime + 0.05f, FColor::Cyan, FString::Printf(TEXT("Velocity: %s"), *Velocity.ToString()), true);
@@ -187,7 +193,7 @@ bool UBMPCharacterMovementComponent::CanSlideInCurrentState() const //
 
 void UBMPCharacterMovementComponent::Slide() 
 {
-	UE_LOG(LogTemp, Warning, TEXT("EnterSlide"))
+	//UE_LOG(LogTemp, Warning, TEXT("EnterSlide"))
 
 	if (!HasValidData()) //
 	{ 
@@ -218,7 +224,7 @@ void UBMPCharacterMovementComponent::EndSlide()
 		return;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("EndSlide"))
+	//UE_LOG(LogTemp, Warning, TEXT("EndSlide"))
 	BMPCharacterOwner->bIsSliding = false;
 	SetMovementMode(EMovementMode::MOVE_Walking);
 }
@@ -301,8 +307,8 @@ void UBMPCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previou
 	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
 	PrevMovementMode = PreviousMovementMode;
 	PrevBMPMovementMode = (EBMPMovementMode)PreviousCustomMode;
-	UE_LOG(LogTemp, Warning, TEXT("PrevMovementMode: %d"), PrevMovementMode);
+	//UE_LOG(LogTemp, Warning, TEXT("PrevMovementMode: %d"), PrevMovementMode);
 
-	UE_LOG(LogTemp, Warning, TEXT("PrevBMPMovementNode: %d"), PrevBMPMovementMode);
+	//UE_LOG(LogTemp, Warning, TEXT("PrevBMPMovementNode: %d"), PrevBMPMovementMode);
 }
 
